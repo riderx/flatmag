@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { WaitingRoom } from '../components/WaitingRoom';
 import { loadSharedState, getSharedState } from '../utils/share';
@@ -12,9 +12,10 @@ type ConnectionStatus = 'connecting' | 'waiting' | 'syncing' | 'error';
 export function SharePage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { id: shareId } = useParams();
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<string | undefined>();
-  const { shareId, permission } = loadSharedState();
+  const { permission } = loadSharedState();
 
   useEffect(() => {
     const connectToSession = async () => {
