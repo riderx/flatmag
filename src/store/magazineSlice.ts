@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Article, HistoryEntry, ZoomLevel } from '../types';
 
-interface MagazineState {
+export interface MagazineState {
   articles: Article[];
   pages: number;
   pageMargins: Record<number, { top: number; right: number; bottom: number; left: number; }>;
@@ -11,6 +11,7 @@ interface MagazineState {
   allowEdit: boolean;
   isConnecting: boolean;
   shareId: string | null;
+  isBroadcasting: boolean;
   history: {
     past: HistoryEntry[];
     future: HistoryEntry[];
@@ -27,6 +28,7 @@ const initialState: MagazineState = {
   allowEdit: true,
   isConnecting: false,
   shareId: null,
+  isBroadcasting: false,
   history: {
     past: [],
     future: []
@@ -161,6 +163,14 @@ const magazineSlice = createSlice({
         ...action.payload.magazine,
         isConnecting: false
       };
+    },
+    startBroadcast: (state, action: PayloadAction<string>) => {
+      state.isBroadcasting = true;
+      state.shareId = action.payload;
+    },
+    stopBroadcast: (state) => {
+      state.isBroadcasting = false;
+      state.shareId = null;
     }
   }
 });
@@ -182,7 +192,9 @@ export const {
   redo,
   jumpToHistory,
   resetState,
-  syncState
+  syncState,
+  startBroadcast,
+  stopBroadcast
 } = magazineSlice.actions;
 
 export default magazineSlice.reducer;

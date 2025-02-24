@@ -28,14 +28,12 @@
     "react-router-dom": "^6.22.3",
     "rematrix": "^0.7.0",
     "uuid": "^9.0.1",
-    "zod": "^3.22.4",
-    "uuid": "^9.0.1"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@types/uuid": "^9.0.8",
     "@types/uuid": "^9.0.8",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
