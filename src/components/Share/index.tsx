@@ -1,16 +1,25 @@
 import React, { useState } from 'react';
 import { Share2 } from 'lucide-react';
-import { useSelector } from 'react-redux';
 import { ShareModal } from './ShareModal';
 import { initializeShare } from '../../utils/share';
 import { getConnectedUsers } from '../../utils/collaboration';
-import type { RootState } from '../../store/store';
 
 export function Share() {
   const [showModal, setShowModal] = useState(false);
   const [allowEdit, setAllowEdit] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [sharePermission, setSharePermission] = useState(allowEdit ? 'edit' : 'read');
   const connectedUsers = getConnectedUsers();
+
+  const handleBroadcast = () => {
+    if (allowEdit) {
+      console.log('Broadcast started');
+      // Logic to start broadcast
+    } else {
+      console.log('Broadcast stopped');
+      // Logic to stop broadcast
+    }
+  };
 
   const handleShare = async () => {
     try {
@@ -20,12 +29,17 @@ export function Share() {
       // Generate share URL
       const shareUrl = new URL('/share', window.location.origin);
       shareUrl.searchParams.set('id', shareId);
-      shareUrl.searchParams.set('permission', allowEdit ? 'edit' : 'read');
+      
+      // Store permission in state
+      setSharePermission(allowEdit ? 'edit' : 'read');
       
       // Copy to clipboard
       await navigator.clipboard.writeText(shareUrl.toString());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      
+      // Activate broadcast
+      handleBroadcast();
       
       // Close modal
       setShowModal(false);
@@ -39,7 +53,7 @@ export function Share() {
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="inline-flex items-center px-3 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+        className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border rounded-md hover:bg-gray-50"
       >
         <Share2 className="w-4 h-4 mr-2" />
         Share

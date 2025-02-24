@@ -32,7 +32,7 @@ export function ShareModal({
         </div>
 
         {connectedUsers > 1 && (
-          <div className="bg-blue-50 p-4 rounded-md">
+          <div className="p-4 rounded-md bg-blue-50">
             <div className="flex items-center text-sm text-blue-700">
               <Users className="w-4 h-4 mr-2" />
               {connectedUsers} users currently connected
@@ -46,15 +46,15 @@ export function ShareModal({
               type="checkbox"
               checked={allowEdit}
               onChange={(e) => onAllowEditChange(e.target.checked)}
-              className="h-4 w-4 text-blue-600 rounded border-gray-300"
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded"
             />
             <span className="text-sm text-gray-700">Allow editing</span>
           </label>
 
           {allowEdit && (
-            <div className="bg-blue-50 p-4 rounded-md">
+            <div className="p-4 rounded-md bg-blue-50">
               <div className="flex items-center text-sm text-blue-700">
-                <Users className="w-4 h-4 mr-2 flex-shrink-0" />
+                <Users className="flex-shrink-0 w-4 h-4 mr-2" />
                 Recipients will be able to edit and collaborate on the layout
               </div>
             </div>
@@ -64,13 +64,13 @@ export function ShareModal({
         <div className="flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md"
+            className="px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             onClick={onShare}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
             {copied ? (
               <>
