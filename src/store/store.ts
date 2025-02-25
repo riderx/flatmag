@@ -1,6 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
 import magazineReducer from './magazineSlice';
-import settingsReducer from './settingsSlice';
 import tagReducer from './tagSlice';
 import magazineListReducer from './magazineListSlice';
 import { loadSharedState } from '../utils/share';
@@ -38,13 +37,11 @@ const loadState = () => {
         isShared: false,
         allowEdit: true,
         isConnecting: false,
-        shareId: null
-      },
-      settings: {
-        title: magazine.title,
-        issueNumber: magazine.issue_number,
-        publicationDate: magazine.publication_date,
-        pageRatio: magazine.page_ratio
+        shareId: null,
+        title: magazine.title || 'My Magazine',
+        issueNumber: magazine.issue_number || 1,
+        publicationDate: magazine.publication_date || new Date().toISOString().split('T')[0],
+        pageRatio: magazine.page_ratio || '1/1.4142'
       }
     };
     
@@ -80,10 +77,10 @@ const saveState = (state: any) => {
       // Update magazine with current state
       magazines[magazineIndex] = {
         ...magazines[magazineIndex],
-        title: state.settings.title,
-        issue_number: state.settings.issueNumber,
-        publication_date: state.settings.publicationDate,
-        page_ratio: state.settings.pageRatio,
+        title: state.magazine.title,
+        issue_number: state.magazine.issueNumber,
+        publication_date: state.magazine.publicationDate,
+        page_ratio: state.magazine.pageRatio,
         state: state.magazine
       };
       
@@ -98,7 +95,6 @@ const saveState = (state: any) => {
 export const store = configureStore({
   reducer: {
     magazine: magazineReducer,
-    settings: settingsReducer,
     tags: tagReducer,
     magazineList: magazineListReducer
   },

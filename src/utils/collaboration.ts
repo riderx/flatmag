@@ -1,14 +1,18 @@
 import { getRandomAnimal } from './animals';
-import { store } from '../store/store';
-import { setShareStatus } from '../store/magazineSlice';
+import { getMagazineStore } from '../store/mainStore';
 import { subscribeToChannel, broadcastToChannel } from './supabase';
 
-interface User {
+export interface User {
   id: string;
   animal: {
     name: string;
     color: string;
   };
+}
+
+interface MessagePayload {
+  event: string;
+  data: Record<string, unknown>;
 }
 
 let userId = Math.random().toString(36).substr(2, 9);
@@ -78,18 +82,18 @@ export const leaveSession = async () => {
   }
 };
 
-const handleMessage = (payload: any) => {
+const handleMessage = (payload: MessagePayload) => {
   const { event, data } = payload;
 
   switch (event) {
     case 'user:join':
-      handleUserJoin(data);
+      handleUserJoin(data as { user: User });
       break;
     case 'user:leave':
-      handleUserLeave(data);
+      handleUserLeave(data as { userId: string });
       break;
     case 'state:update':
-      handleStateUpdate(data);
+      handleStateUpdate(data as { allowEdit: boolean });
       break;
     default:
       console.log('Unknown event:', event);
@@ -108,12 +112,37 @@ const handleUserLeave = (data: { userId: string }) => {
   connectedUsers = connectedUsers.filter(user => user.id !== leavingUserId);
 };
 
-const handleStateUpdate = (data: any) => {
-  store.dispatch(setShareStatus({
-    isShared: true,
-    allowEdit: data.allowEdit,
-    shareId: currentShareId
-  }));
+// This function will be called from a component that uses the store
+export const updateShareStatus = (allowEdit: boolean) => {
+  const magazineStore = getMagazineStore();
+  if (magazineStore) {
+    magazineStore.setShareStatus({
+      isShared: true,
+      allowEdit: allowEdit,
+      shareId: currentShareId
+    });
+  }
+};
+
+// Handle state updates from the channel
+const handleStateUpdate = (data: { allowEdit: boolean }) => {
+  // Store the data to be used later
+  const pendingUpdate = {
+    allowEdit: data.allowEdit
+  };
+  
+  // Try to update the store directly if it's available
+  const magazineStore = getMagazineStore();
+  if (magazineStore) {
+    magazineStore.setShareStatus({
+      isShared: true,
+      allowEdit: pendingUpdate.allowEdit,
+      shareId: currentShareId
+    });
+  } else {
+    // Log for debugging if store isn't available
+    console.log('Received state update:', pendingUpdate);
+  }
 };
 
 export const getSessionId = () => userId;

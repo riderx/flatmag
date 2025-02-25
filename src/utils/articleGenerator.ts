@@ -1,4 +1,5 @@
 import type { Article, Visual, SizeRatio, LineHeight, Tag } from '../types';
+import { store } from '../store/store';
 
 const randomUrls = [
   'https://example.com/tech-future',
@@ -57,11 +58,50 @@ function getRandomUnsplashUrl(): string {
   return `https://picsum.photos/seed/${seed}/800/600`;
 }
 
+function getDefaultTags(): Tag[] {
+  try {
+    // Get tags from Redux store
+    const storeTags = store.getState().tags.tags;
+    if (storeTags && storeTags.length > 0) {
+      return storeTags;
+    }
+    
+    // Fallback default tags if store is empty or not available
+    return [
+      { id: 'todo', name: 'To Do', color: '#EF4444' },
+      { id: 'in-progress', name: 'In Progress', color: '#F59E0B' },
+      { id: 'to-review', name: 'To Review', color: '#3B82F6' },
+      { id: 'done', name: 'Done', color: '#10B981' }
+    ];
+  } catch (error) {
+    console.warn('Failed to get tags from store, using defaults', error);
+    // Fallback default tags if store is not available
+    return [
+      { id: 'todo', name: 'To Do', color: '#EF4444' },
+      { id: 'in-progress', name: 'In Progress', color: '#F59E0B' },
+      { id: 'to-review', name: 'To Review', color: '#3B82F6' },
+      { id: 'done', name: 'Done', color: '#10B981' }
+    ];
+  }
+}
+
 function generateCoverArticle(availableTags: Tag[]): Omit<Article, 'id' | 'startPage'> {
   const seed = Math.floor(Math.random() * 1000);
+  
+  // Use default tags from store if none are available
+  let tags: Tag[];
+  if (availableTags.length > 0) {
+    tags = [availableTags[Math.floor(Math.random() * availableTags.length)]];
+  } else {
+    const defaultTags = getDefaultTags();
+    // Find a tag with "Cover" in the name or use the first tag
+    const coverTag = defaultTags.find(tag => tag.name.includes('Cover')) || defaultTags[0];
+    tags = [coverTag];
+  }
+    
   return {
     title: coverTitles[Math.floor(Math.random() * coverTitles.length)],
-    tags: [availableTags[Math.floor(Math.random() * availableTags.length)]],
+    tags: tags,
     wordCount: 0,
     pageCount: 1,
     columns: 1,
@@ -79,15 +119,28 @@ function generateCoverArticle(availableTags: Tag[]): Omit<Article, 'id' | 'start
       spaceOccupied: 100
     }],
     isLocked: true,
-    pages: []
+    pages: [],
+    wordsPerPage: 0
   };
 }
 
 function generateFullPageImage(availableTags: Tag[]): Omit<Article, 'id' | 'startPage'> {
   const seed = Math.floor(Math.random() * 1000);
+  
+  // Use default tags from store if none are available
+  let tags: Tag[];
+  if (availableTags.length > 0) {
+    tags = [availableTags[Math.floor(Math.random() * availableTags.length)]];
+  } else {
+    const defaultTags = getDefaultTags();
+    // Find a tag with "Full" in the name or use the first tag
+    const fullPageTag = defaultTags.find(tag => tag.name.includes('Full')) || defaultTags[0];
+    tags = [fullPageTag];
+  }
+    
   return {
     title: 'Full Page Photo',
-    tags: [availableTags[Math.floor(Math.random() * availableTags.length)]],
+    tags: tags,
     wordCount: 0,
     pageCount: 1,
     columns: 1,
@@ -105,11 +158,13 @@ function generateFullPageImage(availableTags: Tag[]): Omit<Article, 'id' | 'star
       spaceOccupied: 100
     }],
     isLocked: true,
-    pages: []
+    pages: [],
+    wordsPerPage: 0
   };
 }
 
-const generateRandomVisual = (): Omit<Visual, 'id'> => ({
+const generateRandomVisual = (): Visual => ({
+  id: Math.random().toString(36).substring(2, 9),
   title: randomVisualTitles[Math.floor(Math.random() * randomVisualTitles.length)],
   type: Math.random() > 0.5 ? 'image' : 'illustration',
   width: SIZE_RATIOS[Math.floor(Math.random() * (SIZE_RATIOS.length - 1))] as SizeRatio,
@@ -121,32 +176,70 @@ const generateRandomVisual = (): Omit<Visual, 'id'> => ({
   spaceOccupied: 0
 });
 
-export const generateRandomArticle = (availableTags: Tag[], type?: 'cover' | 'full-page' | 'regular') => {
+export const generateRandomArticle = (availableTags: Tag[], type: 'regular' | 'cover' | 'full-page' = 'regular'): Omit<Article, 'id' | 'startPage'> => {
+  // Ensure availableTags is an array
+  const tags = Array.isArray(availableTags) ? availableTags : [];
+  
   if (type === 'cover') {
-    return generateCoverArticle(availableTags);
+    return generateCoverArticle(tags);
   }
   
   if (type === 'full-page') {
-    return generateFullPageImage(availableTags);
+    return generateFullPageImage(tags);
   }
 
   const title = randomTitles[Math.floor(Math.random() * randomTitles.length)];
   const url = Math.random() > 0.7 ? randomUrls[Math.floor(Math.random() * randomUrls.length)] : '';
 
-  const numTags = Math.floor(Math.random() * Math.min(3, availableTags.length)) + 1;
-  const shuffledTags = [...availableTags].sort(() => Math.random() - 0.5);
-  const selectedTags = shuffledTags.slice(0, numTags);
+  // Use default tags from store if none are available
+  let selectedTags: Tag[];
+  if (tags.length > 0) {
+    const numTags = Math.floor(Math.random() * Math.min(3, tags.length)) + 1;
+    const shuffledTags = [...tags].sort(() => Math.random() - 0.5);
+    selectedTags = shuffledTags.slice(0, numTags);
+  } else {
+    const defaultTags = getDefaultTags();
+    const numTags = Math.floor(Math.random() * Math.min(3, defaultTags.length)) + 1;
+    const shuffledTags = [...defaultTags].sort(() => Math.random() - 0.5);
+    selectedTags = shuffledTags.slice(0, numTags);
+  }
+
+  const visuals = Array.from(
+    { length: Math.floor(Math.random() * 3) }, 
+    () => generateRandomVisual()
+  );
+
+  let wordCount = 0;
+  let pageCount = 1;
+  let columns: 1 | 2 | 3 = 1;
+  let lineHeight: LineHeight = '1/50';
+
+  if (type === 'regular') {
+    wordCount = Math.floor(Math.random() * 2000) + 500;
+    pageCount = Math.floor(Math.random() * 3) + 1;
+    columns = [1, 2, 3][Math.floor(Math.random() * 3)] as 1 | 2 | 3;
+    lineHeight = randomLineHeight[Math.floor(Math.random() * randomLineHeight.length)];
+  } else if (type === 'cover') {
+    wordCount = 0;
+    pageCount = 1;
+    columns = 1;
+  } else if (type === 'full-page') {
+    wordCount = 0;
+    pageCount = 1;
+    columns = 1;
+  }
 
   return {
     title,
     url,
     tags: selectedTags,
-    wordCount: Math.floor(Math.random() * 2000) + 500,
-    columns: (Math.floor(Math.random() * 3) + 1) as 1 | 2 | 3,
-    lineHeight: randomLineHeight[Math.floor(Math.random() * randomLineHeight.length)],
-    visuals: Array.from(
-      { length: Math.floor(Math.random() * 3) }, 
-      () => generateRandomVisual()
-    )
+    wordCount,
+    pageCount,
+    columns,
+    lineHeight,
+    visuals,
+    wordsPerPage: 0,
+    isLocked: false,
+    pages: []
   };
 };

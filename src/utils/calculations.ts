@@ -17,32 +17,20 @@ export const ratioToPercent = (ratio: SizeRatio): number => {
 
 export const calculateRequiredPages = (visuals: Visual[]): number => {
   if (visuals.length === 0) return 1;
-
+  
   // Group visuals by page
-  const visualsByPage = new Map<number, Visual[]>();
+  const visualsByPage: Record<number, Visual[]> = {};
+  
   visuals.forEach(visual => {
     const page = visual.page || 1;
-    if (!visualsByPage.has(page)) {
-      visualsByPage.set(page, []);
+    if (!visualsByPage[page]) {
+      visualsByPage[page] = [];
     }
-    visualsByPage.get(page)!.push(visual);
+    visualsByPage[page].push(visual);
   });
-
-  // Calculate required pages based on visual sizes
-  let maxPage = 1;
-  visualsByPage.forEach((pageVisuals, page) => {
-    const totalSpace = pageVisuals.reduce((total, visual) => {
-      const width = ratioToPercent(visual.width);
-      const height = ratioToPercent(visual.height);
-      return total + (width * height) / 100;
-    }, 0);
-
-    if (totalSpace >= FULL_PAGE_THRESHOLD) {
-      maxPage = Math.max(maxPage, page);
-    }
-  });
-
-  return maxPage;
+  
+  // Find the highest page number
+  return Math.max(...Object.keys(visualsByPage).map(Number));
 };
 
 const calculateVisualImpact = (visual: Visual): { spaceOccupied: number; pushDownPercent: number } => {
@@ -112,15 +100,16 @@ export const calculateWordsPerLine = (columns: number): number => {
 };
 
 export const calculateWordsPerPage = (
-  lineHeight: LineHeight, 
-  cols: number,
-  availableSpace: number,
-  margins: { top: number; right: number; bottom: number; left: number } = { top: 0, right: 0, bottom: 0, left: 0 }
+  lineHeight: LineHeight,
+  columns: 1 | 2 | 3,
+  baseWordsPerPage: number
 ): number => {
-  const availableLines = calculateAvailableLines(lineHeight, availableSpace);
-  const wordsPerLine = calculateWordsPerLine(cols);
-  const effectiveWidth = (100 - margins.left - margins.right) / 100;
-  return Math.max(MIN_WORDS_PER_PAGE, Math.floor(availableLines * wordsPerLine * cols * effectiveWidth));
+  // Extract the ratio from the lineHeight string (e.g., "1/50" -> 1/50)
+  const ratio = parseFloat(lineHeight.split('/')[1]);
+  
+  // Calculate words per page based on line height and columns
+  const wordsPerColumn = Math.floor(baseWordsPerPage / ratio);
+  return wordsPerColumn * columns;
 };
 
 export const distributeWordsAcrossPages = (
@@ -133,7 +122,7 @@ export const distributeWordsAcrossPages = (
   let remainingWords = totalWords;
   
   return pages.map(page => {
-    const wordsForPage = calculateWordsPerPage(lineHeight, columns, page.availableSpace, margins);
+    const wordsForPage = calculateWordsPerPage(lineHeight, columns, page.availableSpace);
     const pageWords = Math.min(remainingWords, wordsForPage);
     remainingWords -= pageWords;
     

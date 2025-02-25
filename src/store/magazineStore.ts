@@ -1,0 +1,448 @@
+import { defineStore } from 'pinia';
+import { ref, reactive, watch } from 'vue';
+import { v4 as uuidv4 } from 'uuid';
+
+export interface Article {
+  id: string;
+  title: string;
+  content: string;
+  visuals: Visual[];
+  tags: string[];
+  wordCount: number;
+  pageCount: number;
+  columns: 1 | 2 | 3;
+  startPage: number;
+  wordsPerPage: number;
+  lineHeight: string;
+  isLocked: boolean;
+}
+
+export interface Visual {
+  id: string;
+  type: 'image' | 'video';
+  url: string;
+  caption: string;
+  width: number;
+  height: number;
+  position: {
+    x: number;
+    y: number;
+    page: number;
+  };
+}
+
+export interface PageMargin {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export interface HistoryEntry {
+  articles: Article[];
+  description: string;
+}
+
+export interface MagazineState {
+  articles: Article[];
+  history: {
+    past: HistoryEntry[];
+    future: HistoryEntry[];
+  };
+  pages: number;
+  pageMargins: Record<number, PageMargin>;
+  zoomLevel: string;
+  showList: boolean;
+  isShared: boolean;
+  allowEdit: boolean;
+  isConnecting: boolean;
+  shareId: string | null;
+  title: string;
+  issueNumber: number;
+  publicationDate: string;
+  pageRatio: string;
+}
+
+export const useMagazineStore = defineStore('magazine', () => {
+  const articles = ref<Article[]>([]);
+  const history = reactive({
+    past: [] as HistoryEntry[],
+    future: [] as HistoryEntry[]
+  });
+  const pages = ref(4);
+  const pageMargins = ref<Record<number, PageMargin>>({});
+  const zoomLevel = ref('2');
+  const showList = ref(true);
+  const isShared = ref(false);
+  const allowEdit = ref(true);
+  const isConnecting = ref(false);
+  const shareId = ref<string | null>(null);
+  const title = ref('My Magazine');
+  const issueNumber = ref(1);
+  const publicationDate = ref(new Date().toISOString());
+  const pageRatio = ref('1/1.4142');
+
+  // Function to add current state to history
+  function addToHistory(description: string) {
+    history.past.push({
+      articles: JSON.parse(JSON.stringify(articles.value)),
+      description
+    });
+    history.future = [];
+  }
+
+  // Function to save current state to localStorage
+  function saveToLocalStorage() {
+    try {
+      // Get current magazine ID from URL
+      const currentPath = window.location.pathname;
+      const magazineId = currentPath.split('/flat-plan/')[1];
+      
+      if (!magazineId) return;
+      
+      // Load and update magazines list
+      const magazines = JSON.parse(localStorage.getItem('magazines') || '[]');
+      const magazineIndex = magazines.findIndex((m: { id: string }) => m.id === magazineId);
+      
+      if (magazineIndex !== -1) {
+        // Update magazine with current state
+        magazines[magazineIndex] = {
+          ...magazines[magazineIndex],
+          title: title.value,
+          issue_number: issueNumber.value,
+          publication_date: publicationDate.value,
+          page_ratio: pageRatio.value,
+          updated_at: new Date().toISOString(),
+          state: {
+            articles: articles.value,
+            history: history,
+            pages: pages.value,
+            pageMargins: pageMargins.value,
+            zoomLevel: zoomLevel.value,
+            showList: showList.value,
+            isShared: isShared.value,
+            allowEdit: allowEdit.value,
+            isConnecting: isConnecting.value,
+            shareId: shareId.value,
+            title: title.value,
+            issueNumber: issueNumber.value,
+            publicationDate: publicationDate.value,
+            pageRatio: pageRatio.value
+          }
+        };
+        
+        // Save updated magazines list
+        localStorage.setItem('magazines', JSON.stringify(magazines));
+      }
+    } catch (err) {
+      console.error('Error saving state to localStorage:', err);
+    }
+  }
+
+  // Watch for changes to all reactive state and save to localStorage
+  watch(
+    [
+      articles, 
+      () => history.past, 
+      () => history.future, 
+      pages, 
+      pageMargins, 
+      zoomLevel, 
+      showList, 
+      isShared, 
+      allowEdit, 
+      isConnecting, 
+      shareId,
+      title,
+      issueNumber,
+      publicationDate,
+      pageRatio
+    ],
+    () => {
+      saveToLocalStorage();
+    },
+    { deep: true }
+  );
+
+  function addArticle(article: Partial<Article>) {
+    const newArticle: Article = {
+      id: article.id || uuidv4(),
+      title: article.title || 'New Article',
+      content: article.content || '',
+      visuals: article.visuals || [],
+      tags: article.tags || [],
+      wordCount: article.wordCount || 0,
+      pageCount: article.pageCount || 1,
+      columns: article.columns || 1,
+      startPage: article.startPage || 1,
+      wordsPerPage: article.wordsPerPage || 500,
+      lineHeight: article.lineHeight || '1/100',
+      isLocked: article.isLocked || false
+    };
+    
+    // Ensure articles.value is initialized
+    if (!articles.value) {
+      articles.value = [];
+    }
+    
+    articles.value.push(newArticle);
+    addToHistory(`Added article: ${newArticle.title}`);
+    return newArticle;
+  }
+
+  function updateArticle(articleOrId: string | Article, updates?: Partial<Article>) {
+    if (typeof articleOrId === 'string') {
+      // Called with id and updates
+      const id = articleOrId;
+      const index = articles.value.findIndex(article => article.id === id);
+      if (index !== -1 && updates) {
+        articles.value[index] = { ...articles.value[index], ...updates };
+        addToHistory(`Updated article: ${articles.value[index].title}`);
+      }
+    } else {
+      // Called with full article object
+      const article = articleOrId;
+      const index = articles.value.findIndex(a => a.id === article.id);
+      if (index !== -1) {
+        articles.value[index] = article;
+        addToHistory(`Updated article: ${article.title}`);
+      }
+    }
+  }
+
+  function removeArticle(id: string) {
+    const index = articles.value.findIndex(article => article.id === id);
+    if (index !== -1) {
+      const article = articles.value[index];
+      articles.value.splice(index, 1);
+      addToHistory(`Removed article: ${article.title}`);
+    }
+  }
+
+  function deleteArticle(id: string) {
+    removeArticle(id);
+  }
+
+  function addPage() {
+    pages.value += 1;
+    addToHistory(`Added page: ${pages.value}`);
+  }
+
+  function removePage() {
+    if (pages.value > 1) {
+      pages.value -= 1;
+      addToHistory(`Removed page: ${pages.value + 1}`);
+    }
+  }
+
+  function setPages(pageCount: number) {
+    pages.value = pageCount;
+    addToHistory(`Set pages to ${pageCount}`);
+  }
+
+  function setZoomLevel(level: string) {
+    zoomLevel.value = level;
+    addToHistory(`Set zoom level to ${level}`);
+  }
+
+  function toggleList() {
+    showList.value = !showList.value;
+    addToHistory(`${showList.value ? 'Showed' : 'Hid'} article list`);
+  }
+
+  function setShowList(show: boolean) {
+    showList.value = show;
+    addToHistory(`${show ? 'Showed' : 'Hid'} article list`);
+  }
+
+  function setShareStatus(status: { isShared: boolean; allowEdit: boolean; shareId: string | null }) {
+    isShared.value = status.isShared;
+    allowEdit.value = status.allowEdit;
+    shareId.value = status.shareId;
+    addToHistory(`${status.isShared ? 'Enabled' : 'Disabled'} sharing`);
+  }
+
+  function setConnecting(connecting: boolean) {
+    isConnecting.value = connecting;
+  }
+
+  function setConnectionStatus(connecting: boolean) {
+    isConnecting.value = connecting;
+  }
+
+  function updatePageMargin(pageNumber: number, margin: PageMargin) {
+    pageMargins.value[pageNumber] = margin;
+    addToHistory(`Updated margins for page ${pageNumber}`);
+  }
+
+  function reorderArticles(newArticles: Article[]) {
+    articles.value = [...newArticles];
+    addToHistory('Reordered articles');
+  }
+
+  function syncState(data: { magazine: MagazineState }) {
+    const { magazine } = data;
+    
+    // Initialize articles array if it doesn't exist
+    if (!articles.value) {
+      articles.value = [];
+    }
+    
+    if (magazine.articles) {
+      articles.value = magazine.articles;
+    }
+    
+    if (magazine.history) {
+      history.past = magazine.history.past || [];
+      history.future = magazine.history.future || [];
+    }
+    
+    if (magazine.pages) {
+      pages.value = magazine.pages;
+    }
+    
+    if (magazine.pageMargins) {
+      pageMargins.value = magazine.pageMargins;
+    }
+    
+    if (magazine.zoomLevel) {
+      zoomLevel.value = magazine.zoomLevel;
+    }
+    
+    if (magazine.showList !== undefined) {
+      showList.value = magazine.showList;
+    }
+    
+    if (magazine.isShared !== undefined) {
+      isShared.value = magazine.isShared;
+    }
+    
+    if (magazine.allowEdit !== undefined) {
+      allowEdit.value = magazine.allowEdit;
+    }
+    
+    if (magazine.isConnecting !== undefined) {
+      isConnecting.value = magazine.isConnecting;
+    }
+    
+    if (magazine.shareId !== undefined) {
+      shareId.value = magazine.shareId;
+    }
+    
+    // Always set these values if they exist in the magazine data
+    if (magazine.title) {
+      title.value = magazine.title;
+    }
+    
+    if (magazine.issueNumber !== undefined) {
+      issueNumber.value = magazine.issueNumber;
+    }
+    
+    if (magazine.publicationDate) {
+      publicationDate.value = magazine.publicationDate;
+    }
+    
+    if (magazine.pageRatio) {
+      pageRatio.value = magazine.pageRatio;
+    }
+  }
+
+  function undo() {
+    if (history.past.length > 0) {
+      const previous = history.past.pop();
+      if (previous) {
+        const current = { articles: [...articles.value], description: 'Current state' };
+        history.future.push(current);
+        articles.value = [...previous.articles];
+      }
+    }
+  }
+
+  function redo() {
+    if (history.future.length > 0) {
+      const next = history.future.pop();
+      if (next) {
+        const current = { articles: [...articles.value], description: 'Current state' };
+        history.past.push(current);
+        articles.value = [...next.articles];
+      }
+    }
+  }
+
+  function jumpToHistory(index: number) {
+    if (index >= 0 && index < history.past.length) {
+      const targetState = history.past[index];
+      const currentState = { articles: [...articles.value], description: 'Current state' };
+      
+      // Move all states after the target to future
+      const newFuture = history.past.slice(index + 1).reverse();
+      newFuture.push(currentState);
+      
+      // Set past to include only states up to the target
+      history.past = history.past.slice(0, index);
+      
+      // Update future and current state
+      history.future = [...newFuture, ...history.future];
+      articles.value = [...targetState.articles];
+    }
+  }
+
+  function resetState() {
+    articles.value = [];
+    history.past = [];
+    history.future = [];
+    pages.value = 4;
+    pageMargins.value = {};
+    zoomLevel.value = '2';
+    showList.value = true;
+    isShared.value = false;
+    allowEdit.value = true;
+    isConnecting.value = false;
+    shareId.value = null;
+    title.value = 'My Magazine';
+    issueNumber.value = 1;
+    publicationDate.value = new Date().toISOString();
+    pageRatio.value = '1/1.4142';
+  }
+
+  return {
+    // State
+    articles,
+    history,
+    pages,
+    pageMargins,
+    zoomLevel,
+    showList,
+    isShared,
+    allowEdit,
+    isConnecting,
+    shareId,
+    title,
+    issueNumber,
+    publicationDate,
+    pageRatio,
+    
+    // Actions
+    addArticle,
+    updateArticle,
+    removeArticle,
+    deleteArticle,
+    addPage,
+    removePage,
+    setPages,
+    setZoomLevel,
+    toggleList,
+    setShowList,
+    setShareStatus,
+    setConnecting,
+    setConnectionStatus,
+    updatePageMargin,
+    reorderArticles,
+    syncState,
+    undo,
+    redo,
+    jumpToHistory,
+    resetState,
+    saveToLocalStorage
+  };
+}); 

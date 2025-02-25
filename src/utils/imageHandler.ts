@@ -1,7 +1,6 @@
 import type { Visual } from '../types';
 
 export interface ImageUploadResult {
-  url: string;
   base64?: string;
   error?: string;
 }
@@ -32,35 +31,27 @@ async function convertFileToBase64(file: File): Promise<string> {
 }
 
 export const handleImageUpload = async (file: File): Promise<ImageUploadResult> => {
-  try {
-    if (!file.type.startsWith('image/')) {
-      throw new Error('File must be an image');
+  return new Promise((resolve) => {
+    if (!file.type.match('image.*')) {
+      resolve({ error: 'Please select an image file' });
+      return;
     }
 
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      throw new Error('Image must be less than 5MB');
-    }
-
-    const base64 = await convertFileToBase64(file);
-    return {
-      url: base64,
-      base64
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      resolve({ base64 });
     };
-  } catch (error) {
-    return {
-      url: '',
-      error: error instanceof Error ? error.message : 'Failed to upload image'
+    reader.onerror = () => {
+      resolve({ error: 'Failed to read file' });
     };
-  }
+    reader.readAsDataURL(file);
+  });
 };
 
-export const getImageUrl = async (url: string): Promise<string> => {
-  if (url.startsWith('data:')) {
-    return url;
-  }
-
-  return downloadAndConvertToBase64(url);
+export const getImageUrl = (url: string): string => {
+  // In a real app, this might handle CDN URLs or other transformations
+  return url;
 };
 
 export const cleanupImageUrl = (url: string) => {}; // No cleanup needed for base64

@@ -1,10 +1,16 @@
-import type { SharePermission } from '../types';
 import { createShare, getShare, subscribeToChannel, broadcastToChannel } from './supabase';
-import { store } from '../store/store';
-import { setShareStatus } from '../store/magazineSlice';
 import { initializeCollaboration } from './collaboration';
+import LZString from 'lz-string';
+import type { MagazineState, Article } from '../store/magazineStore';
 
-export const loadSharedState = () => {
+export type SharePermission = 'read' | 'edit';
+
+interface ShareData {
+  shareId: string | null;
+  permission: SharePermission | null;
+}
+
+export const loadSharedState = (): ShareData => {
   try {
     const shareData = localStorage.getItem('shareData');
     if (!shareData) return { shareId: null, permission: null };
@@ -17,16 +23,52 @@ export const loadSharedState = () => {
   }
 };
 
-export const initializeShare = async (allowEdit: boolean) => {
+export const generateShareUrl = (
+  allowEdit: boolean,
+  magazineStore: { 
+    articles: Article[]; 
+    zoomLevel: string; 
+    showList: boolean;
+    title: string;
+    issueNumber: number;
+    publicationDate: string;
+    pageRatio: string;
+  }
+) => {
+  // Create a compressed state object from the stores
+  const stateToShare = {
+    magazine: {
+      articles: magazineStore.articles,
+      zoomLevel: magazineStore.zoomLevel,
+      showList: magazineStore.showList,
+      title: magazineStore.title,
+      issueNumber: magazineStore.issueNumber,
+      publicationDate: magazineStore.publicationDate,
+      pageRatio: magazineStore.pageRatio
+    }
+  };
+  
+  // Compress the state
+  const compressedState = LZString.compressToEncodedURIComponent(
+    JSON.stringify(stateToShare)
+  );
+  
+  // Create the URL with the compressed state and edit permission
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/share?data=${compressedState}&edit=${allowEdit ? '1' : '0'}`;
+};
+
+export const initializeShare = async (
+  allowEdit: boolean,
+  magazineStore: { $state: MagazineState }
+) => {
   try {
     // Initialize collaboration system
     initializeCollaboration();
     
     // Get current state
-    const state = store.getState();
     const stateToShare = {
-      magazine: state.magazine,
-      settings: state.settings
+      magazine: magazineStore.$state
     };
 
     // Create share
@@ -37,11 +79,10 @@ export const initializeShare = async (allowEdit: boolean) => {
       console.log('Received broadcast:', payload);
     });
     
-    // Update store with share status
-    store.dispatch(setShareStatus({
-      isShared: true,
-      allowEdit,
-      shareId
+    // Store share info in localStorage
+    localStorage.setItem('shareData', JSON.stringify({
+      shareId,
+      permission: allowEdit ? 'edit' : 'read'
     }));
 
     // Broadcast initial connection
