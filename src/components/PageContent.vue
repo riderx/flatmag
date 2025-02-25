@@ -46,6 +46,9 @@ const effectiveMargins = computed(() => {
   return (props.article as ArticleWithMargins)?.margins || props.margins || DEFAULT_MARGINS
 })
 
+const currentPage = computed(() => props.pageIndex + 1)
+const page = computed(() => props.article?.pages?.find?.(p => p.pageNumber === currentPage.value) || null)
+
 function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
   if (!props.article || props.article.isLocked || !props.isEditingAllowed)
     return
@@ -55,7 +58,6 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
     return
 
   const rect = container.getBoundingClientRect()
-  const currentPageValue = props.pageIndex + 1
   const visual = props.article.visuals?.find?.(v => v.id === visualId)
 
   if (!visual)
@@ -75,13 +77,23 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
     rect.height,
   )
 
-  if (currentPageValue >= props.article.startPage && currentPageValue <= props.article.startPage + props.article.pageCount - 1) {
+  // Determine the absolute page number in the magazine where the user is currently interacting
+  const absolutePageNumber = props.isFlipbook
+    ? props.pageIndex + 1 // In grid view, pageIndex is 0-based absolute index
+    : currentPage.value // In normal view, we use currentPage directly
+
+  // Calculate the article-relative page number (1-based)
+  const articleStartPage = props.article.startPage || 1
+  const articleRelativePage = absolutePageNumber - articleStartPage + 1
+
+  // Make sure we're still within the article's page range
+  if (articleRelativePage >= 1 && articleRelativePage <= props.article.pageCount) {
     const updatedVisuals = props.article.visuals?.map?.(v =>
       v.id === visualId
         ? {
             ...v,
             ...newPosition,
-            page: currentPageValue,
+            page: articleRelativePage, // Save the article-relative page number
           }
         : v,
     ) || []
@@ -104,16 +116,33 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
   }
 }
 
-const currentPage = computed(() => props.pageIndex + 1)
-const page = computed(() => props.article?.pages?.find?.(p => p.pageNumber === currentPage.value) || null)
-
 const isCurrentPageFull = computed(() => props.article?.visuals?.some?.(v =>
   v.width === 'full' && v.height === 'full' && v.page === currentPage.value,
 ) || false)
 
-const visualsOnCurrentPage = computed(() =>
-  props.article?.visuals?.filter?.(v => v.page === currentPage.value) || [],
-)
+const visualsOnCurrentPage = computed(() => {
+  // No article data available
+  if (!props.article?.visuals)
+    return []
+
+  // Get visuals for the current page
+  return props.article.visuals.filter((v) => {
+    // Make sure page is defined
+    if (v.page === undefined)
+      return false
+
+    // Magazine absolute page number where we're currently viewing
+    const absolutePageNumber = props.isFlipbook
+      ? props.pageIndex + 1 // In grid view, pageIndex is 0-based absolute index
+      : currentPage.value // In normal view, we're using currentPage directly
+
+    // For any view: check if visual belongs on current absolute page
+    const articleStartPage = props.article.startPage || 1
+    const visualAbsolutePageNumber = articleStartPage + (v.page - 1)
+
+    return visualAbsolutePageNumber === absolutePageNumber
+  })
+})
 
 // Calculate word count for this specific page
 const pageWordCount = computed(() => {
