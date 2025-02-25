@@ -1,6 +1,6 @@
-import type { Article, MagazineState } from '../store/magazineStore'
+import type { MagazineState } from '../store/magazineStore'
 import LZString from 'lz-string'
-import { initializeCollaboration } from './collaboration'
+import { joinSession } from './collaboration'
 import { broadcastToChannel, createShare, getShare, subscribeToChannel } from './supabase'
 
 export type SharePermission = 'read' | 'edit'
@@ -59,21 +59,43 @@ export function generateShareUrl(allowEdit: boolean, magazineStore: {
 
 export async function initializeShare(allowEdit: boolean, magazineStore: { $state: MagazineState }) {
   try {
-    // Initialize collaboration system
-    initializeCollaboration()
-
     // Get current state
     const stateToShare = {
       magazine: magazineStore.$state,
     }
 
-    // Create share
+    // Create share record in Supabase
     const shareId = await createShare(JSON.stringify(stateToShare))
 
-    // Subscribe to channel immediately
-    subscribeToChannel(shareId, (payload) => {
-      console.log('Received broadcast:', payload)
-    })
+    // Join the collaboration session
+    await joinSession(shareId, true)
+
+    // Store share info in localStorage
+    localStorage.setItem('shareData', JSON.stringify({
+      shareId,
+      permission: 'edit', // Owner always has edit permission
+    }))
+
+    // Return the share ID
+    return shareId
+  }
+  catch (error) {
+    console.error('Share initialization error:', error)
+    throw error
+  }
+}
+
+export async function joinSharedSession(shareId: string, allowEdit: boolean) {
+  try {
+    // Get the shared state
+    const sharedData = await getSharedState(shareId)
+
+    if (!sharedData) {
+      throw new Error('Shared magazine not found')
+    }
+
+    // Join the collaboration session
+    await joinSession(shareId, allowEdit)
 
     // Store share info in localStorage
     localStorage.setItem('shareData', JSON.stringify({
@@ -81,15 +103,10 @@ export async function initializeShare(allowEdit: boolean, magazineStore: { $stat
       permission: allowEdit ? 'edit' : 'read',
     }))
 
-    // Broadcast initial connection
-    broadcastToChannel(shareId, 'user:join', {
-      timestamp: Date.now(),
-    })
-
-    return shareId
+    return sharedData
   }
   catch (error) {
-    console.error('Share initialization error:', error)
+    console.error('Error joining shared session:', error)
     throw error
   }
 }

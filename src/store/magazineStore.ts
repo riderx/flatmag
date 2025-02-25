@@ -1,7 +1,15 @@
 import type { Tag } from '../types'
+import type { User } from '../utils/collaboration'
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import { computed, reactive, ref, watch } from 'vue'
+import {
+  broadcastArticleDelete,
+  broadcastArticleReorder,
+  broadcastArticleUpdate,
+  getSessionUser,
+
+} from '../utils/collaboration'
 import { useTagStore } from './tagStore'
 
 export interface Article {
@@ -43,6 +51,7 @@ export interface PageMargin {
 export interface HistoryEntry {
   articles: Article[]
   description: string
+  user?: User
 }
 
 export interface MagazineState {
@@ -89,10 +98,11 @@ export const useMagazineStore = defineStore('magazine', () => {
   const magazineTags = ref<Tag[]>([])
 
   // Function to add current state to history
-  function addToHistory(description: string) {
+  function addToHistory(description: string, user?: User) {
     history.past.push({
       articles: JSON.parse(JSON.stringify(articles.value)),
       description,
+      user: user || getSessionUser(),
     })
     history.future = []
   }
@@ -198,24 +208,29 @@ export const useMagazineStore = defineStore('magazine', () => {
     return newArticle
   }
 
-  function updateArticle(articleOrId: string | Article, updates?: Partial<Article>) {
-    if (typeof articleOrId === 'string') {
-      // Called with id and updates
-      const id = articleOrId
-      const index = articles.value.findIndex(article => article.id === id)
-      if (index !== -1 && updates) {
-        articles.value[index] = { ...articles.value[index], ...updates }
-        addToHistory(`Updated article: ${articles.value[index].title}`)
-      }
+  function updateArticle(articleOrId: string | Article, updates?: Partial<Article>, user?: User, shouldBroadcast = true) {
+    const articleId = typeof articleOrId === 'string' ? articleOrId : articleOrId.id
+    const articleIndex = articles.value.findIndex(a => a.id === articleId)
+
+    if (articleIndex === -1)
+      return
+
+    const article = articles.value[articleIndex]
+
+    if (typeof articleOrId === 'object' && !updates) {
+      // Replace entirely
+      articles.value[articleIndex] = articleOrId
+      addToHistory(`Updated article ${article.title}`, user)
     }
-    else {
-      // Called with full article object
-      const article = articleOrId
-      const index = articles.value.findIndex(a => a.id === article.id)
-      if (index !== -1) {
-        articles.value[index] = article
-        addToHistory(`Updated article: ${article.title}`)
-      }
+    else if (updates) {
+      // Update specific fields
+      articles.value[articleIndex] = { ...article, ...updates }
+      addToHistory(`Updated article ${article.title}`, user)
+    }
+
+    // Broadcast changes to other users if we're in a shared session
+    if (isShared.value && shouldBroadcast) {
+      broadcastArticleUpdate(articles.value[articleIndex])
     }
   }
 
@@ -228,8 +243,19 @@ export const useMagazineStore = defineStore('magazine', () => {
     }
   }
 
-  function deleteArticle(id: string) {
-    removeArticle(id)
+  function deleteArticle(id: string, user?: User, shouldBroadcast = true) {
+    const articleIndex = articles.value.findIndex(a => a.id === id)
+    if (articleIndex === -1)
+      return
+
+    const article = articles.value[articleIndex]
+    articles.value.splice(articleIndex, 1)
+    addToHistory(`Deleted article ${article.title}`, user)
+
+    // Broadcast delete to other users if we're in a shared session
+    if (isShared.value && shouldBroadcast) {
+      broadcastArticleDelete(id)
+    }
   }
 
   function addPage() {
@@ -284,9 +310,14 @@ export const useMagazineStore = defineStore('magazine', () => {
     addToHistory(`Updated margins for page ${pageNumber}`)
   }
 
-  function reorderArticles(newArticles: Article[]) {
+  function reorderArticles(newArticles: Article[], user?: User, shouldBroadcast = true) {
     articles.value = [...newArticles]
-    addToHistory('Reordered articles')
+    addToHistory('Reordered articles', user)
+
+    // Broadcast reorder to other users if we're in a shared session
+    if (isShared.value && shouldBroadcast) {
+      broadcastArticleReorder(newArticles)
+    }
   }
 
   function syncState(data: { magazine: MagazineState }) {

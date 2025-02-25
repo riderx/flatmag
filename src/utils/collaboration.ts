@@ -20,6 +20,7 @@ let userAnimal = getRandomAnimal()
 let connectedUsers: User[] = [{ id: userId, animal: userAnimal }]
 let currentShareId: string | null = null
 let unsubscribeFunction: (() => void) | null = null
+let isEditAllowed = true
 
 export function initializeCollaboration() {
   if (!userId) {
@@ -34,7 +35,7 @@ export function initializeCollaboration() {
   }]
 }
 
-export async function joinSession(shareId: string) {
+export async function joinSession(shareId: string, allowEdit: boolean) {
   // Clean up any existing subscription
   if (unsubscribeFunction) {
     unsubscribeFunction()
@@ -42,6 +43,7 @@ export async function joinSession(shareId: string) {
   }
 
   currentShareId = shareId
+  isEditAllowed = allowEdit
   initializeCollaboration()
 
   // Subscribe to channel
@@ -95,6 +97,15 @@ function handleMessage(payload: MessagePayload) {
     case 'state:update':
       handleStateUpdate(data as { allowEdit: boolean })
       break
+    case 'article:reorder':
+      handleArticleReorder(data as { articles: any[], user: User })
+      break
+    case 'article:update':
+      handleArticleUpdate(data as { article: any, user: User })
+      break
+    case 'article:delete':
+      handleArticleDelete(data as { articleId: string, user: User })
+      break
     default:
       console.log('Unknown event:', event)
   }
@@ -146,7 +157,75 @@ function handleStateUpdate(data: { allowEdit: boolean }) {
   }
 }
 
+// New handlers for article operations
+function handleArticleReorder(data: { articles: any[], user: User }) {
+  if (!isEditAllowed)
+    return
+
+  const magazineStore = getMagazineStore()
+  if (magazineStore) {
+    // Prevent triggering another broadcast by setting a flag
+    magazineStore.reorderArticles(data.articles, data.user, false)
+  }
+}
+
+function handleArticleUpdate(data: { article: any, user: User }) {
+  if (!isEditAllowed)
+    return
+
+  const magazineStore = getMagazineStore()
+  if (magazineStore) {
+    magazineStore.updateArticle(data.article, {}, data.user, false)
+  }
+}
+
+function handleArticleDelete(data: { articleId: string, user: User }) {
+  if (!isEditAllowed)
+    return
+
+  const magazineStore = getMagazineStore()
+  if (magazineStore) {
+    magazineStore.deleteArticle(data.articleId, data.user, false)
+  }
+}
+
+// Functions to broadcast changes to other users
+export function broadcastArticleReorder(articles: any[]) {
+  if (!currentShareId)
+    return
+
+  broadcastToChannel(currentShareId, 'article:reorder', {
+    articles,
+    user: { id: userId, animal: userAnimal },
+    timestamp: Date.now(),
+  })
+}
+
+export function broadcastArticleUpdate(article: any) {
+  if (!currentShareId)
+    return
+
+  broadcastToChannel(currentShareId, 'article:update', {
+    article,
+    user: { id: userId, animal: userAnimal },
+    timestamp: Date.now(),
+  })
+}
+
+export function broadcastArticleDelete(articleId: string) {
+  if (!currentShareId)
+    return
+
+  broadcastToChannel(currentShareId, 'article:delete', {
+    articleId,
+    user: { id: userId, animal: userAnimal },
+    timestamp: Date.now(),
+  })
+}
+
 export const getSessionId = () => userId
+export const getSessionUser = () => ({ id: userId, animal: userAnimal })
 export const isCollaborating = () => !!currentShareId
 export const getConnectedPeers = () => connectedUsers.length - 1
 export const getConnectedUsers = () => connectedUsers
+export const isEditingAllowed = () => isEditAllowed
