@@ -123,14 +123,25 @@ async function loadImage(url: string) {
   loadingState.value.error = null
 
   try {
+    // Use the getImageUrl utility which handles conversion for non-base64 URLs
     const imageUrl = await getImageUrl(url)
-    if (imageUrl) {
-      loadingState.value.isLoading = false
-      loadingState.value.retryCount = 0
-    }
-    else {
-      throw new Error('Failed to load image')
-    }
+
+    // Pre-load the image to ensure we track loading state properly
+    const img = new Image()
+
+    const loadPromise = new Promise((resolve, reject) => {
+      img.onload = () => resolve(true)
+      img.onerror = () => reject(new Error('Failed to load image'))
+
+      // Set src after adding event listeners
+      img.src = imageUrl
+    })
+
+    await loadPromise
+
+    // Update loading state on success
+    loadingState.value.isLoading = false
+    loadingState.value.retryCount = 0
   }
   catch (error) {
     loadingState.value.isLoading = false
@@ -168,13 +179,37 @@ const visualStyle = computed(() => {
     :class="{ 'ring-2 ring-blue-500': isDragging, 'pointer-events-none': isDragDisabled }"
     @mousedown="handleMouseDown"
   >
+    <!-- Loading state -->
+    <div
+      v-if="loadingState.isLoading && visual.type === 'image'"
+      class="w-full h-full bg-gray-100 flex flex-col items-center justify-center"
+    >
+      <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-2" />
+      <span class="text-sm text-gray-500">Loading image...</span>
+    </div>
+
+    <!-- Error state -->
+    <div
+      v-else-if="loadingState.error && visual.type === 'image'"
+      class="w-full h-full bg-gray-100 flex flex-col items-center justify-center p-4"
+    >
+      <svg class="w-8 h-8 text-red-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <span class="text-sm text-red-500 text-center">Failed to load image</span>
+    </div>
+
+    <!-- Image when loaded -->
     <img
-      v-if="visual.type === 'image' && visual.url"
+      v-else-if="visual.type === 'image' && visual.url"
       :src="visual.url"
       :alt="visual.title || 'Visual'"
       class="w-full h-full object-cover"
       draggable="false"
+      @load="loadingState.isLoading = false"
+      @error="loadingState.error = 'Failed to load image'"
     >
+
     <div
       v-else-if="visual.type === 'illustration'"
       class="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center"
