@@ -30,29 +30,29 @@ function handleNext() {
 
 <template>
   <button
-    class="absolute top-8 right-8 text-white hover:text-gray-300 z-50"
+    class="fixed top-4 right-4 md:top-6 md:right-6 text-white hover:text-gray-300 z-[60] p-2.5 rounded-full bg-black/50 hover:bg-black/60 transition-colors"
     @click="handleClose"
   >
-    <X class="w-8 h-8" />
+    <X class="w-7 h-7" />
   </button>
 
   <button
     :disabled="currentPage <= 0 || isFlipping"
-    class="absolute left-8 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-50"
+    class="fixed left-6 md:left-12 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 hover:bg-black/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-[60]"
     @click="handlePrevious"
   >
-    <ChevronLeft class="w-8 h-8 text-white" />
+    <ChevronLeft class="w-7 h-7 text-white" />
   </button>
 
   <button
     :disabled="currentPage >= totalPages - 2 || isFlipping"
-    class="absolute right-8 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-50"
+    class="fixed right-6 md:right-12 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 hover:bg-black/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-[60]"
     @click="handleNext"
   >
-    <ChevronRight class="w-8 h-8 text-white" />
+    <ChevronRight class="w-7 h-7 text-white" />
   </button>
 
-  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-white/20 text-white text-lg z-50">
+  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-full bg-black/50 text-white text-sm md:text-base font-medium z-[60]">
     {{ currentPage + 1 }}-{{ currentPage + 2 }} of {{ totalPages }}
   </div>
 </template>

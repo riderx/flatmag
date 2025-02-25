@@ -42,35 +42,37 @@ const handleReorderArticles = (articles: any[]) => emit('reorderArticles', artic
 </script>
 
 <template>
-  <div class="relative">
-    <!-- Article List View -->
-    <template v-if="showList">
-      <!-- Note: In the Vue version, we're not implementing DnD yet -->
-      <ArticleList
-        :articles="articles"
-        :pages="pages"
-        :is-editing-allowed="isEditingAllowed"
-        @delete="handleDeleteArticle"
-        @edit="handleEditArticle"
-        @reorder="handleReorderArticles"
-      />
-    </template>
+  <div>
+    <!-- Main content area with relative positioning -->
+    <div class="relative">
+      <!-- Article List View -->
+      <template v-if="showList">
+        <ArticleList
+          :articles="articles"
+          :pages="pages"
+          :is-editing-allowed="isEditingAllowed"
+          @delete="handleDeleteArticle"
+          @edit="handleEditArticle"
+          @reorder="handleReorderArticles"
+        />
+      </template>
 
-    <!-- Magazine View -->
-    <template v-else>
-      <MagazineView
-        :articles="articles"
-        :pages="pages"
-        :zoom-level="zoomLevel"
-        :is-editing-allowed="isEditingAllowed"
-        @add-page="handleAddPage"
-        @remove-page="handleRemovePage"
-        @edit-article="handleEditArticle"
-        @update-article="handleUpdateArticle"
-      />
-    </template>
+      <!-- Magazine View -->
+      <template v-else>
+        <MagazineView
+          :articles="articles"
+          :pages="pages"
+          :zoom-level="zoomLevel"
+          :is-editing-allowed="isEditingAllowed"
+          @add-page="handleAddPage"
+          @remove-page="handleRemovePage"
+          @edit-article="handleEditArticle"
+          @update-article="handleUpdateArticle"
+        />
+      </template>
+    </div>
 
-    <!-- Flipbook View (shown as overlay when active) -->
+    <!-- Flipbook View (completely separate from page content as fixed overlay) -->
     <FlipbookView
       v-if="showFlipbook"
       :articles="articles"

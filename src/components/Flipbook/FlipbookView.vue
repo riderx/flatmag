@@ -70,15 +70,15 @@ function initPageFlip() {
 
   // Create new PageFlip instance
   pageFlip.value = new PageFlip(bookElement.value, {
-    width: 550, // Base page width
-    height: 733, // Base page height (based on A4 proportions)
-    size: 'stretch',
-    minWidth: 320,
+    width: 550, // Wider for better visibility
+    height: 733, // Standard A4 proportion
+    size: 'fixed', // Fixed size for better stability
+    minWidth: 300,
     maxWidth: 1000,
     minHeight: 400,
-    maxHeight: 1533,
-    maxShadowOpacity: 0.5,
-    showCover: false,
+    maxHeight: 1200,
+    maxShadowOpacity: 0.2, // Reduced shadow opacity
+    showCover: true,
     usePortrait: true,
     flippingTime: 1000,
     useMouseEvents: true,
@@ -98,10 +98,10 @@ function initPageFlip() {
 }
 
 onMounted(() => {
-  // Initialize PageFlip
+  // Initialize PageFlip with a slight delay to ensure DOM is ready
   setTimeout(() => {
     initPageFlip()
-  }, 100)
+  }, 300)
 })
 
 onUnmounted(() => {
@@ -113,13 +113,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="w-[90vw] h-[80vh] relative flex flex-col">
-      <!-- Main Flipbook content -->
-      <div class="flex-grow flex flex-col">
-        <!-- The book container -->
-        <div ref="bookElement" class="book-container flex-grow">
-          <!-- Hidden container with page HTML elements -->
+  <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
+    <div class="relative w-[90vw] max-w-[1200px] h-[80vh] flex flex-col items-center justify-center">
+      <!-- Flipbook container -->
+      <div class="w-full flex-1 flex items-center justify-center">
+        <div ref="bookElement" class="flipbook">
+          <!-- Pages container (hidden) -->
           <div ref="pagesContainer" class="hidden">
             <div
               v-for="(page, index) in allPages"
@@ -127,18 +126,18 @@ onUnmounted(() => {
               class="page"
               :data-density="index === 0 || index === allPages.length - 1 ? 'hard' : 'soft'"
             >
-              <div class="bg-white h-full w-full p-4">
+              <div class="page-content">
                 <PageContent
                   v-if="page.articles[0]"
                   :article="page.articles[0]"
                   :page-index="page.pageIndex"
                   :is-flipbook="true"
-                  :margins="{ top: 5, right: 5, bottom: 5, left: 5 }"
+                  :margins="{ top: 4, right: 4, bottom: 4, left: 4 }"
                   :is-editing-allowed="true"
                   @edit-article="handleEditArticle"
                   @update-article="handleUpdateArticle"
                 />
-                <div v-else class="h-full flex items-center justify-center text-gray-400">
+                <div v-else class="h-full w-full flex items-center justify-center text-gray-400">
                   Page {{ page.pageIndex + 1 }}
                 </div>
               </div>
@@ -148,52 +147,70 @@ onUnmounted(() => {
       </div>
 
       <!-- Navigation controls -->
-      <Navigation
-        :current-page="currentPage"
-        :total-pages="props.pages"
-        :is-flipping="false"
-        @flip="handleFlip"
-        @close="handleClose"
-      />
+      <div class="mt-4">
+        <Navigation
+          :current-page="currentPage"
+          :total-pages="props.pages"
+          :is-flipping="false"
+          @flip="handleFlip"
+          @close="handleClose"
+        />
+      </div>
     </div>
   </div>
 </template>
 
-<style scoped>
-/* Add custom styles for the flipbook view */
-.book-container {
-  position: relative;
+<style>
+/* Flipbook container */
+.flipbook {
   width: 100%;
   height: 100%;
+  display: block;
 }
 
+/* Page styles */
 .page {
-  color: #333;
   background-color: white;
-  border-radius: 4px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-:deep(.--left) {
-  border-radius: 4px 0 0 4px;
+.page-content {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  background-color: white;
+  overflow: hidden;
 }
 
-:deep(.--right) {
-  border-radius: 0 4px 4px 0;
+/* PageFlip specific styles (these must be global) */
+.stf__parent {
+  position: absolute;
 }
 
-:deep(.stf__parent) {
-  width: 100% !important;
-  height: 100% !important;
+.stf__wrapper {
+  position: relative !important;
 }
 
-:deep(.stf__block) {
-  border-radius: 4px;
-  box-shadow: 0 0 18px rgba(0, 0, 0, 0.1);
+.stf__block {
+  border-radius: 5px;
+  /* Only show shadow during flipping */
+  box-shadow: none;
 }
 
-:deep(.stf__item) {
-  height: 100% !important;
-  width: 100% !important;
+/* Shadow only appears on flipping pages */
+.stf__block.--left.--flipping,
+.stf__block.--right.--flipping {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.stf__item {
+  background-color: white;
+}
+
+.--left {
+  border-radius: 5px 0 0 5px;
+}
+
+.--right {
+  border-radius: 0 5px 5px 0;
 }
 </style>
