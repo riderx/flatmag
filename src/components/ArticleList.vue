@@ -253,7 +253,7 @@ function handleDragEnd() {
           </div>
         </div>
 
-        <div class="flex flex-wrap gap-2 text-sm text-gray-500">
+        <div class="flex flex-wrap gap-2 text-sm text-gray-500 mb-2">
           <span>Pages {{ article.startPage }}–{{ article.startPage + article.pageCount - 1 }}</span>
           <span>{{ article.columns }} column{{ article.columns > 1 ? 's' : '' }}</span>
           <span v-if="article.wordCount > 0">{{ article.wordCount }} words</span>
