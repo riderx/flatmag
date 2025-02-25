@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Upload } from 'lucide-vue-next'
 import { ref } from 'vue'
-import { handleImageUpload } from '../../utils/imageHandler'
+import { handleImageUpload } from '../../utils/imageHandler/index'
 
 withDefaults(defineProps<{
   className?: string

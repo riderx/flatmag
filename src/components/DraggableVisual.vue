@@ -2,7 +2,7 @@
 import type { Article, SizeRatio, Visual } from '../types'
 import { useDraggable } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
-import { getImageUrl } from '../utils/imageHandler'
+import { getImageUrl } from '../utils/imageHandler/index'
 
 interface ImageLoadingState {
   isLoading: boolean

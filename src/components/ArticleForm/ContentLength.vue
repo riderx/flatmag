@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { LineHeight } from '../../types'
 import { computed } from 'vue'
-import { LINE_HEIGHTS } from './constants'
+import { calculateWordsPerPage } from '../../utils/calculations'
+import { DEFAULT_MARGINS, LINE_HEIGHTS } from './constants'
 import { inputStyles, selectStyles } from './styles'
 
 const props = defineProps<{
@@ -10,6 +11,12 @@ const props = defineProps<{
   pageCount: string
   lineHeight: LineHeight
   columns: 1 | 2 | 3
+  margins?: {
+    top: number
+    right: number
+    bottom: number
+    left: number
+  }
 }>()
 
 const emit = defineEmits<{
@@ -20,16 +27,19 @@ const emit = defineEmits<{
   (e: 'columnsChange', columns: 1 | 2 | 3): void
 }>()
 
-// Calculate words per page based on current settings
+const margins = computed(() => props.margins || DEFAULT_MARGINS)
+
+// Calculate margin reduction factor (percentage of page unavailable due to margins)
+const marginReductionFactor = computed(() => {
+  const { top, right, bottom, left } = margins.value
+  return (top + right + bottom + left) / 100
+})
+
+// Get words per page using the utility function from calculations.ts
 const wordsPerPage = computed(() => {
-  // Base calculation from the utility function
-  const baseWordsPerPage = 600 // This matches the React implementation
-
-  // Extract the ratio from the lineHeight string (e.g., "1/50" -> 50)
-  const ratio = Number.parseInt(props.lineHeight.split('/')[1])
-
-  // Calculate words per page based on line height and columns
-  return baseWordsPerPage * props.columns / ratio
+  const baseWordsPerPage = calculateWordsPerPage(props.lineHeight, props.columns, 600)
+  // Reduce available words based on margins
+  return Math.floor(baseWordsPerPage * (1 - marginReductionFactor.value))
 })
 
 // Calculate required pages based on word count
@@ -64,28 +74,32 @@ function handleColumnsChange(e: Event) {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center space-x-4">
-      <label class="text-sm font-medium text-gray-700">Content Length:</label>
-      <div class="flex items-center space-x-2">
-        <input
-          id="useWords"
-          type="radio"
-          :checked="useWordCount"
-          class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
-          @change="handleUseWordCountChange(true)"
-        >
-        <label for="useWords" class="text-sm text-gray-700">Word Count</label>
-      </div>
-      <div class="flex items-center space-x-2">
-        <input
-          id="usePages"
-          type="radio"
-          :checked="!useWordCount"
-          class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
-          @change="handleUseWordCountChange(false)"
-        >
-        <label for="usePages" class="text-sm text-gray-700">Page Count</label>
+  <div>
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-medium text-gray-700">
+        Content Length
+      </h3>
+      <div class="flex items-center space-x-4">
+        <label class="inline-flex items-center text-sm text-gray-700">
+          <input
+            type="radio"
+            name="lengthType"
+            :checked="useWordCount"
+            class="form-radio text-blue-600"
+            @change="handleUseWordCountChange(true)"
+          >
+          <span class="ml-2">Word Count</span>
+        </label>
+        <label class="inline-flex items-center text-sm text-gray-700">
+          <input
+            type="radio"
+            name="lengthType"
+            :checked="!useWordCount"
+            class="form-radio text-blue-600"
+            @change="handleUseWordCountChange(false)"
+          >
+          <span class="ml-2">Page Count</span>
+        </label>
       </div>
     </div>
 
@@ -104,7 +118,7 @@ function handleColumnsChange(e: Event) {
         >
         <p class="mt-1 text-sm text-gray-500">
           Will take approximately {{ calculatedPages }}
-          pages({{ wordsPerPage }} words per page)
+          pages ({{ wordsPerPage }} words per page)
         </p>
       </div>
       <div v-else>

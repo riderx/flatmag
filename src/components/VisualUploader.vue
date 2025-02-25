@@ -2,7 +2,7 @@
 import type { Visual } from '../types'
 import { Upload } from 'lucide-vue-next'
 import { ref } from 'vue'
-import { handleImageUpload } from '../utils/imageHandler'
+import { handleImageUpload } from '../utils/imageHandler/index'
 
 defineProps<{
   visual: Partial<Visual>
@@ -29,7 +29,7 @@ async function handleFileChange(event: Event) {
 
   const result = await handleImageUpload(file)
   if (result.error || !result.base64) {
-    emit('error', result.error)
+    emit('error', result.error || 'Unknown error uploading image')
   }
   else {
     emit('upload', result.base64)

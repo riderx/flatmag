@@ -32,3 +32,14 @@ export const SIZE_RATIOS: SizeRatio[] = [
   '1/2',
   'full',
 ]
+
+// Default margin values in percentage
+export const DEFAULT_MARGINS = {
+  top: 5,
+  right: 5,
+  bottom: 5,
+  left: 5,
+}
+
+// Margin step for slider controls (in percentage)
+export const MARGIN_STEP = 1

@@ -92,6 +92,7 @@ function isLightColor(color: string) {
         >
           {{ article.title }}
         </span>
+
         <div class="flex gap-1 shrink-0 ml-2 flex-nowrap">
           <div
             v-for="tag in article.tags"
@@ -110,25 +111,10 @@ function isLightColor(color: string) {
     </div>
 
     <div
-      v-if="article && isEditingAllowed && zoomLevel !== 'all'"
+      v-if="article && isEditingAllowed"
       class="flex items-center space-x-2 ml-2 shrink-0"
     >
-      <button
-        class="p-1 text-gray-500 hover:text-gray-700"
-        title="Adjust margins"
-        @click="showMarginSettings = !showMarginSettings"
-      >
-        <Settings2 class="w-4 h-4" />
-      </button>
-      <button
-        v-if="!article.visuals.some(v => v.width === 'full' && v.height === 'full') || showList"
-        class="p-1 text-gray-500 hover:text-gray-700"
-        :title="article.isLocked ? 'Unlock layout' : 'Lock layout'"
-        @click="toggleArticleLock"
-      >
-        <Lock v-if="article.isLocked" class="w-4 h-4" />
-        <Unlock v-else class="w-4 h-4" />
-      </button>
+      <!-- Edit button always visible -->
       <button
         class="p-1 text-blue-600 hover:text-blue-800"
         title="Edit article"
@@ -136,6 +122,26 @@ function isLightColor(color: string) {
       >
         <Edit2 class="w-4 h-4" />
       </button>
+
+      <!-- Other settings only visible in certain zoom levels -->
+      <template v-if="zoomLevel !== 'all'">
+        <button
+          class="p-1 text-gray-500 hover:text-gray-700"
+          title="Adjust margins"
+          @click="showMarginSettings = !showMarginSettings"
+        >
+          <Settings2 class="w-4 h-4" />
+        </button>
+        <button
+          v-if="!article.visuals.some(v => v.width === 'full' && v.height === 'full') || showList"
+          class="p-1 text-gray-500 hover:text-gray-700"
+          :title="article.isLocked ? 'Unlock layout' : 'Lock layout'"
+          @click="toggleArticleLock"
+        >
+          <Lock v-if="article.isLocked" class="w-4 h-4" />
+          <Unlock v-else class="w-4 h-4" />
+        </button>
+      </template>
     </div>
 
     <div

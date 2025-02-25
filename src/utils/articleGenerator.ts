@@ -192,7 +192,8 @@ export function generateRandomArticle(availableTags: Tag[], type: 'regular' | 'c
   }
 
   const title = randomTitles[Math.floor(Math.random() * randomTitles.length)]
-  const url = Math.random() > 0.7 ? randomUrls[Math.floor(Math.random() * randomUrls.length)] : ''
+  // 50% chance of having a URL
+  const url = Math.random() > 0.5 ? randomUrls[Math.floor(Math.random() * randomUrls.length)] : ''
 
   // Use default tags from store if none are available
   let selectedTags: Tag[]

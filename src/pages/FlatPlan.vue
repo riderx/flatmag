@@ -9,10 +9,10 @@ import DeleteConfirmation from '../components/DeleteConfirmation.vue'
 import HistoryPanel from '../components/HistoryPanel.vue'
 import Loader from '../components/Loader.vue'
 import MagazineSettings from '../components/MagazineSettings.vue'
-import MainContent from '../components/MainContent'
+import MainContent from '../components/MainContent/MainContent.vue'
 import MetaTags from '../components/MetaTags.vue'
 import Modal from '../components/Modal.vue'
-import Toolbar from '../components/Toolbar'
+import Toolbar from '../components/Toolbar/Toolbar.vue'
 import { useMagazineStore } from '../store/magazineStore'
 import { getConnectedPeers, initializeCollaboration, isCollaborating, joinSession } from '../utils/collaboration'
 
@@ -195,6 +195,7 @@ function handleAddArticle(newArticle: any) {
         startPage: editingArticle.value.startPage,
       })
     }
+    // Make sure we reset the editing article
     editingArticle.value = null
   }
   else {
@@ -212,6 +213,7 @@ function handleAddArticle(newArticle: any) {
       magazineStore.addArticle(articleToAdd)
     }
   }
+  // Always close the modal after adding or updating
   isModalOpen.value = false
 }
 

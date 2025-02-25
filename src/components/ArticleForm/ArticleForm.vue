@@ -6,7 +6,9 @@ import { useTagStore } from '../../store/tagStore'
 import { generateRandomArticle } from '../../utils/articleGenerator'
 import { calculateRequiredPages, ratioToPercent } from '../../utils/calculations'
 import BasicInfo from './BasicInfo.vue'
+import { DEFAULT_MARGINS } from './constants'
 import ContentLength from './ContentLength.vue'
+import MarginSettings from './MarginSettings.vue'
 import Visuals from './Visuals.vue'
 
 const props = defineProps<{
@@ -31,16 +33,21 @@ const columns = ref<1 | 2 | 3>(props.article?.columns || 1)
 const visuals = ref<Visual[]>(props.article?.visuals || [])
 const useWordCount = ref(true)
 const lineHeight = ref<LineHeight>(props.article?.lineHeight || '1/50')
+const margins = ref(props.article?.margins || { ...DEFAULT_MARGINS })
 
 // Watch for changes in wordCount, lineHeight, columns, and visuals
 // to update pageCount when using wordCount
-watch([wordCount, useWordCount, lineHeight, columns, visuals], () => {
+watch([wordCount, useWordCount, lineHeight, columns, visuals, margins], () => {
   if (useWordCount.value) {
     const words = Number.parseInt(wordCount.value) || 0
     // Use the same calculation as in ContentLength.vue
     const baseWordsPerPage = 600
     const wordsPerPage = baseWordsPerPage * columns.value
-    const pagesForWords = Math.max(1, Math.ceil(words / wordsPerPage))
+    // Adjust for margins - each percent of margin reduces content space
+    const marginReduction = (margins.value.top + margins.value.bottom + margins.value.left + margins.value.right) / 100
+    const adjustedWordsPerPage = Math.floor(wordsPerPage * (1 - marginReduction))
+
+    const pagesForWords = Math.max(1, Math.ceil(words / adjustedWordsPerPage))
     const pagesForVisuals = calculateRequiredPages(visuals.value)
     const calculatedPages = Math.max(pagesForWords, pagesForVisuals)
     pageCount.value = calculatedPages.toString()
@@ -64,6 +71,9 @@ function handleSubmit(e: Event) {
   // Use the same calculation as in ContentLength.vue
   const baseWordsPerPage = 600
   const wordsPerPage = baseWordsPerPage * columns.value
+  // Adjust for margins
+  const marginReduction = (margins.value.top + margins.value.bottom + margins.value.left + margins.value.right) / 100
+  const adjustedWordsPerPage = Math.floor(wordsPerPage * (1 - marginReduction))
 
   // Ensure visuals have valid page numbers
   const updatedVisuals = visuals.value.map(visual => ({
@@ -72,7 +82,8 @@ function handleSubmit(e: Event) {
     spaceOccupied: (ratioToPercent(visual.width) * ratioToPercent(visual.height)) / 100,
   }))
 
-  emit('add', {
+  // Construct the article object
+  const articleData = {
     title: title.value,
     content: props.article?.content || '',
     tags: tags.value,
@@ -81,16 +92,21 @@ function handleSubmit(e: Event) {
     pageCount: totalPages,
     visuals: updatedVisuals,
     columns: columns.value,
-    wordsPerPage,
+    wordsPerPage: adjustedWordsPerPage,
     lineHeight: lineHeight.value,
+    margins: margins.value,
     isLocked: false,
     pages: [],
-  })
+  }
+
+  // Emit the add event with the article data
+  emit('add', articleData)
 }
 
 function handleRandomArticleByType(type: 'regular' | 'cover' | 'full-page') {
   const random = generateRandomArticle(availableTags.value, type)
   title.value = random.title
+  url.value = random.url
   tags.value = random.tags
   wordCount.value = random.wordCount.toString()
   columns.value = random.columns
@@ -129,6 +145,10 @@ function handleLineHeightChange(value: LineHeight) {
 
 function handleColumnsChange(value: 1 | 2 | 3) {
   columns.value = value
+}
+
+function handleMarginsChange(newMargins: typeof margins.value) {
+  margins.value = newMargins
 }
 
 function handleAddVisual() {
@@ -181,11 +201,17 @@ function handleDelete() {
       :page-count="pageCount"
       :line-height="lineHeight"
       :columns="columns"
+      :margins="margins"
       @use-word-count-change="handleUseWordCountChange"
       @word-count-change="handleWordCountChange"
       @page-count-change="handlePageCountChange"
       @line-height-change="handleLineHeightChange"
       @columns-change="handleColumnsChange"
+    />
+
+    <MarginSettings
+      :margins="margins"
+      @margins-change="handleMarginsChange"
     />
 
     <Visuals

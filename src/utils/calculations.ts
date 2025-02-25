@@ -4,6 +4,7 @@ export function ratioToPercent(ratio: SizeRatio): number {
   if (ratio === 'full')
     return 100
   try {
+    console.log('ratio', ratio)
     const [num, den] = (ratio || '1/1').split('/').map(Number)
     if (!num || !den || Number.isNaN(num) || Number.isNaN(den))
       return 100
@@ -103,10 +104,13 @@ export function calculateWordsPerLine(columns: number): number {
 
 export function calculateWordsPerPage(lineHeight: LineHeight, columns: 1 | 2 | 3, baseWordsPerPage: number): number {
   // Extract the ratio from the lineHeight string (e.g., "1/50" -> 1/50)
-  const ratio = Number.parseFloat(lineHeight.split('/')[1])
+  const denominator = Number.parseFloat(lineHeight.split('/')[1])
+
+  // Create a properly formatted ratio string for ratioToPercent
+  const ratio = (denominator ? `1/${denominator}` : '1/1') as SizeRatio
 
   // Calculate words per page based on line height and columns
-  const wordsPerColumn = Math.floor(baseWordsPerPage / ratio)
+  const wordsPerColumn = Math.floor(baseWordsPerPage * ratioToPercent(ratio))
   return wordsPerColumn * columns
 }
 
