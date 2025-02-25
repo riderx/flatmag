@@ -2,15 +2,11 @@
 import { Layout } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { getConnectedUsers, getSessionId } from '../utils/collaboration'
-import UserPresence from './UserPresence.vue'
 
 const route = useRoute()
 const isHome = computed(() => route.path === '/')
 const isEditor = computed(() => route.path.startsWith('/flat-plan'))
 const isMagazines = computed(() => route.path === '/magazines')
-const currentUserId = getSessionId()
-const connectedUsers = getConnectedUsers()
 </script>
 
 <template>
@@ -23,12 +19,6 @@ const connectedUsers = getConnectedUsers()
             FlatMag
           </span>
         </RouterLink>
-
-        <UserPresence
-          v-if="!isHome"
-          :users="connectedUsers"
-          :current-user-id="currentUserId"
-        />
 
         <div v-if="!isHome" class="flex items-center space-x-4">
           <RouterLink
