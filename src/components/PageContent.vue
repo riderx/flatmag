@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { DndContext, DragEndEvent, PointerSensor } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToParentElement } from '@dnd-kit/modifiers';
 import { ratioToPercent } from '../utils/calculations';
 import TextLines from './TextLines.vue';
@@ -24,15 +24,13 @@ const emit = defineEmits<{
   (e: 'updateArticle', article: Article): void;
 }>();
 
-// Create a sensor configuration object instead of using React hooks
-const sensors = [{
-  sensor: PointerSensor,
-  options: {
-    activationConstraint: {
-      distance: 8,
-    },
-  }
-}];
+// Create proper sensors using the Vue wrapper functions
+const pointerSensor = useSensor(PointerSensor, {
+  activationConstraint: {
+    distance: 8,
+  },
+});
+const sensors = useSensors(pointerSensor);
 
 const isFullPage = (article: Article): boolean => {
   return article.visuals.some(v => 

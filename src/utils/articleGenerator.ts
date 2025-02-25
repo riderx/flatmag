@@ -1,5 +1,5 @@
 import type { Article, Visual, SizeRatio, LineHeight, Tag } from '../types';
-import { store } from '../store/store';
+import { useTagStore } from '../store/tagStore';
 
 const randomUrls = [
   'https://example.com/tech-future',
@@ -60,22 +60,17 @@ function getRandomUnsplashUrl(): string {
 
 function getDefaultTags(): Tag[] {
   try {
-    // Get tags from Redux store
-    const storeTags = store.getState().tags.tags;
-    if (storeTags && storeTags.length > 0) {
-      return storeTags;
+    // Get tags from Pinia store
+    const tagStore = useTagStore();
+    if (tagStore.tags && tagStore.tags.length > 0) {
+      return tagStore.tags;
     }
     
-    // Fallback default tags if store is empty or not available
-    return [
-      { id: 'todo', name: 'To Do', color: '#EF4444' },
-      { id: 'in-progress', name: 'In Progress', color: '#F59E0B' },
-      { id: 'to-review', name: 'To Review', color: '#3B82F6' },
-      { id: 'done', name: 'Done', color: '#10B981' }
-    ];
+    // Fallback to default tags if store is empty
+    return tagStore.getDefaultTags();
   } catch (error) {
     console.warn('Failed to get tags from store, using defaults', error);
-    // Fallback default tags if store is not available
+    // Fallback with hardcoded defaults if nothing else works
     return [
       { id: 'todo', name: 'To Do', color: '#EF4444' },
       { id: 'in-progress', name: 'In Progress', color: '#F59E0B' },

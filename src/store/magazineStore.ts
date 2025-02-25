@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
+import type { Tag } from '../types';
+import { useTagStore } from './tagStore';
 
 export interface Article {
   id: string;
@@ -61,9 +63,12 @@ export interface MagazineState {
   issueNumber: number;
   publicationDate: string;
   pageRatio: string;
+  magazineTags: Tag[];
 }
 
 export const useMagazineStore = defineStore('magazine', () => {
+  const tagStore = useTagStore();
+  
   const articles = ref<Article[]>([]);
   const history = reactive({
     past: [] as HistoryEntry[],
@@ -81,6 +86,7 @@ export const useMagazineStore = defineStore('magazine', () => {
   const issueNumber = ref(1);
   const publicationDate = ref(new Date().toISOString());
   const pageRatio = ref('1/1.4142');
+  const magazineTags = ref<Tag[]>([]);
 
   // Function to add current state to history
   function addToHistory(description: string) {
@@ -102,20 +108,19 @@ export const useMagazineStore = defineStore('magazine', () => {
       
       // Load and update magazines list
       const magazines = JSON.parse(localStorage.getItem('magazines') || '[]');
-      const magazineIndex = magazines.findIndex((m: { id: string }) => m.id === magazineId);
+      const magazineIndex = magazines.findIndex((m: any) => m.id === magazineId);
       
       if (magazineIndex !== -1) {
-        // Update magazine with current state
+        // Update magazine with current state including magazineTags
         magazines[magazineIndex] = {
           ...magazines[magazineIndex],
           title: title.value,
           issue_number: issueNumber.value,
           publication_date: publicationDate.value,
           page_ratio: pageRatio.value,
-          updated_at: new Date().toISOString(),
           state: {
             articles: articles.value,
-            history: history,
+            history,
             pages: pages.value,
             pageMargins: pageMargins.value,
             zoomLevel: zoomLevel.value,
@@ -127,7 +132,8 @@ export const useMagazineStore = defineStore('magazine', () => {
             title: title.value,
             issueNumber: issueNumber.value,
             publicationDate: publicationDate.value,
-            pageRatio: pageRatio.value
+            pageRatio: pageRatio.value,
+            magazineTags: magazineTags.value
           }
         };
         
@@ -135,7 +141,7 @@ export const useMagazineStore = defineStore('magazine', () => {
         localStorage.setItem('magazines', JSON.stringify(magazines));
       }
     } catch (err) {
-      console.error('Error saving state to localStorage:', err);
+      console.error('Error saving state:', err);
     }
   }
 
@@ -345,6 +351,10 @@ export const useMagazineStore = defineStore('magazine', () => {
     if (magazine.pageRatio) {
       pageRatio.value = magazine.pageRatio;
     }
+    
+    if (magazine.magazineTags) {
+      magazineTags.value = magazine.magazineTags;
+    }
   }
 
   function undo() {
@@ -403,7 +413,46 @@ export const useMagazineStore = defineStore('magazine', () => {
     issueNumber.value = 1;
     publicationDate.value = new Date().toISOString();
     pageRatio.value = '1/1.4142';
+    magazineTags.value = [];
   }
+
+  // Add functions for managing magazine-specific tags
+  function addMagazineTag(tag: Tag) {
+    magazineTags.value.push(tag);
+    saveToLocalStorage();
+  }
+
+  function updateMagazineTag(updatedTag: Tag) {
+    const index = magazineTags.value.findIndex(tag => tag.id === updatedTag.id);
+    if (index !== -1) {
+      magazineTags.value[index] = updatedTag;
+      saveToLocalStorage();
+    }
+  }
+
+  function deleteMagazineTag(id: string) {
+    magazineTags.value = magazineTags.value.filter(tag => tag.id !== id);
+    saveToLocalStorage();
+  }
+
+  // Function to get all available tags (global + magazine-specific)
+  const getAllTags = computed(() => {
+    // Combine global tags and magazine-specific tags
+    // Use a Map to handle duplicates (preferring magazine-specific tags)
+    const tagsMap = new Map();
+    
+    // Add global tags first
+    tagStore.tags.forEach(tag => {
+      tagsMap.set(tag.id, tag);
+    });
+    
+    // Then add magazine-specific tags (will override global tags with same id)
+    magazineTags.value.forEach(tag => {
+      tagsMap.set(tag.id, tag);
+    });
+    
+    return Array.from(tagsMap.values());
+  });
 
   return {
     // State
@@ -421,6 +470,8 @@ export const useMagazineStore = defineStore('magazine', () => {
     issueNumber,
     publicationDate,
     pageRatio,
+    magazineTags,
+    getAllTags,
     
     // Actions
     addArticle,
@@ -443,6 +494,9 @@ export const useMagazineStore = defineStore('magazine', () => {
     redo,
     jumpToHistory,
     resetState,
-    saveToLocalStorage
+    saveToLocalStorage,
+    addMagazineTag,
+    updateMagazineTag,
+    deleteMagazineTag
   };
 }); 

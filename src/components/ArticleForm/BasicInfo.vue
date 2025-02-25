@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import TagInput from '../TagInput.vue';
 import type { Tag } from '../../types';
 import { inputStyles } from './styles';
+import { useMagazineStore } from '../../store/magazineStore';
 
 defineProps<{
   title: string;
@@ -16,6 +17,9 @@ const emit = defineEmits<{
   (e: 'urlChange', url: string): void;
   (e: 'tagsChange', tags: Tag[]): void;
 }>();
+
+// Get the magazine store to access all tags
+const magazineStore = useMagazineStore();
 
 const handleTitleChange = (e: Event) => {
   const target = e.target as HTMLInputElement;
@@ -70,6 +74,11 @@ const handleTagsChange = (tags: Tag[]) => {
         :selectedTags="tags"
         @tagsChange="handleTagsChange"
       />
+      <div class="mt-2 flex items-center">
+        <div class="text-xs text-gray-500">
+          <span class="font-medium">Tip:</span> You can add magazine-specific tags or use global tags
+        </div>
+      </div>
     </div>
   </div>
 </template> 

@@ -4,7 +4,7 @@ import { PlusCircle, Wand2, Trash2 } from 'lucide-vue-next';
 import type { Visual, LineHeight, Tag } from '../../types';
 import { generateRandomArticle } from '../../utils/articleGenerator'; 
 import { calculateWordsPerPage, calculateRequiredPages, ratioToPercent } from '../../utils/calculations';
-import { store } from '../../store/store';
+import { useTagStore } from '../../store/tagStore';
 import BasicInfo from './BasicInfo.vue';
 import ContentLength from './ContentLength.vue';
 import Visuals from './Visuals.vue';
@@ -18,8 +18,9 @@ const emit = defineEmits<{
   (e: 'delete', id: string): void;
 }>();
 
-// Get tags from the Redux store
-const availableTags = computed(() => store.getState().tags.tags);
+// Get tags from the Pinia store
+const tagStore = useTagStore();
+const availableTags = computed(() => tagStore.tags);
 
 const title = ref(props.article?.title || '');
 const url = ref(props.article?.url || '');

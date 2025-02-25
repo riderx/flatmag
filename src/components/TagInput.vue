@@ -2,8 +2,8 @@
 import { ref, computed } from 'vue';
 import { Plus, X, Trash2 } from 'lucide-vue-next';
 import type { Tag } from '../types';
-import { store } from '../store/store';
-import { addTag, deleteTag } from '../store/tagSlice';
+import { useTagStore } from '../store/tagStore';
+import { useMagazineStore } from '../store/magazineStore';
 
 const props = defineProps<{
   selectedTags: Tag[];
@@ -13,29 +13,19 @@ const emit = defineEmits<{
   (e: 'tagsChange', tags: Tag[]): void;
 }>();
 
-// Default tags to use if store is not available
-const defaultTags: Tag[] = [
-  { id: 'todo', name: 'To Do', color: '#EF4444' },
-  { id: 'in-progress', name: 'In Progress', color: '#F59E0B' },
-  { id: 'to-review', name: 'To Review', color: '#3B82F6' },
-  { id: 'done', name: 'Done', color: '#10B981' }
-];
+// Use the centralized tag store
+const tagStore = useTagStore();
+// Use the magazine store
+const magazineStore = useMagazineStore();
 
-// Get all available tags from the Redux store with fallback to default tags
-const availableTags = computed(() => {
-  try {
-    const storeTags = store.getState().tags.tags;
-    return storeTags && storeTags.length > 0 ? storeTags : defaultTags;
-  } catch (error) {
-    console.warn('Failed to get tags from store, using defaults', error);
-    return defaultTags;
-  }
-});
+// Get combined tags from global store and magazine-specific tags
+const availableTags = computed(() => magazineStore.getAllTags);
 
 const isAdding = ref(false);
 const newTagName = ref('');
 const newTagColor = ref('#3B82F6');
 const tagToDelete = ref<Tag | null>(null);
+const isGlobalTag = ref(true);
 
 const handleAddTag = () => {
   if (newTagName.value.trim()) {
@@ -45,11 +35,11 @@ const handleAddTag = () => {
       color: newTagColor.value
     };
     
-    // Dispatch to Redux store
-    try {
-      store.dispatch(addTag(newTag));
-    } catch (error) {
-      console.warn('Failed to dispatch to store', error);
+    // Add to appropriate store
+    if (isGlobalTag.value) {
+      tagStore.addTag(newTag);
+    } else {
+      magazineStore.addMagazineTag(newTag);
     }
     
     // Update local state
@@ -68,11 +58,12 @@ const handleDeleteTag = (tag: Tag) => {
     emit('tagsChange', props.selectedTags.filter(t => t.id !== tag.id));
   }
   
-  // Dispatch to Redux store
-  try {
-    store.dispatch(deleteTag(tag.id));
-  } catch (error) {
-    console.warn('Failed to dispatch to store', error);
+  // Check if it's a global tag or magazine-specific tag and delete accordingly
+  const isGlobal = tagStore.tags.some(t => t.id === tag.id);
+  if (isGlobal) {
+    tagStore.deleteTag(tag.id);
+  } else {
+    magazineStore.deleteMagazineTag(tag.id);
   }
   
   // Close modal
@@ -97,6 +88,11 @@ const isLightColor = (color: string) => {
   const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000;
   return brightness > 128;
 };
+
+// Check if a tag is a global tag
+const isGlobalTagFn = (tag: Tag) => {
+  return tagStore.tags.some(t => t.id === tag.id);
+};
 </script>
 
 <template>
@@ -111,9 +107,12 @@ const isLightColor = (color: string) => {
           v-for="tag in availableTags"
           :key="tag.id"
           class="group inline-flex items-center px-2.5 py-1.5 rounded-full text-sm font-medium transition-all"
-          :class="props.selectedTags.some(t => t.id === tag.id) 
-            ? 'ring-2 ring-offset-2 ring-gray-500 shadow-md' 
-            : 'opacity-70 hover:opacity-100'"
+          :class="[
+            props.selectedTags.some(t => t.id === tag.id) 
+              ? 'ring-2 ring-offset-2 ring-gray-500 shadow-md' 
+              : 'opacity-70 hover:opacity-100',
+            isGlobalTagFn(tag) ? '' : 'border border-dashed border-gray-300'
+          ]"
           :style="{
             backgroundColor: tag.color,
             color: isLightColor(tag.color) ? 'black' : 'white'
@@ -121,6 +120,7 @@ const isLightColor = (color: string) => {
           @click="toggleTag(tag)"
         >
           <span>{{ tag.name }}</span>
+          <span v-if="!isGlobalTagFn(tag)" class="ml-1 text-xs opacity-70">(local)</span>
           <button
             @click.stop="tagToDelete = tag"
             class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
@@ -174,6 +174,25 @@ const isLightColor = (color: string) => {
               </div>
             </div>
           </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Scope</label>
+            <div class="inline-flex bg-gray-100 rounded-lg p-1">
+              <button 
+                @click="isGlobalTag = true" 
+                class="px-3 py-1 rounded-md text-sm font-medium transition-colors"
+                :class="isGlobalTag ? 'bg-white shadow-xs text-gray-800' : 'text-gray-600'"
+              >
+                Global
+              </button>
+              <button 
+                @click="isGlobalTag = false" 
+                class="px-3 py-1 rounded-md text-sm font-medium transition-colors"
+                :class="!isGlobalTag ? 'bg-white shadow-xs text-gray-800' : 'text-gray-600'"
+              >
+                Magazine
+              </button>
+            </div>
+          </div>
           <div class="flex gap-2">
             <button
               @click.prevent="handleAddTag"
@@ -194,7 +213,7 @@ const isLightColor = (color: string) => {
     </div>
     
     <!-- Delete Confirmation Modal -->
-    <div v-if="tagToDelete" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div v-if="tagToDelete" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <div class="flex items-start">
           <div class="flex-shrink-0">
@@ -204,7 +223,8 @@ const isLightColor = (color: string) => {
             <h3 class="text-lg font-medium text-gray-900">Delete Tag</h3>
             <div class="mt-2">
               <p class="text-sm text-gray-500">
-                Are you sure you want to delete the tag "{{ tagToDelete.name }}"? This will remove it from all articles that use it.
+                Are you sure you want to delete the tag "{{ tagToDelete.name }}"? 
+                This will remove it {{ isGlobalTagFn(tagToDelete) ? 'globally' : 'from this magazine' }} and from all articles that use it.
               </p>
             </div>
           </div>
