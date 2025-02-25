@@ -1,64 +1,64 @@
 <script setup lang="ts">
-import { ref, onUnmounted, onMounted } from 'vue';
+import { onUnmounted, ref } from 'vue'
 
 interface DropdownOption {
-  label: string;
-  onClick: () => void;
+  label: string
+  onClick: () => void
 }
 
-const props = withDefaults(defineProps<{
-  options: DropdownOption[];
-  buttonContent?: any;
-  className?: string;
+withDefaults(defineProps<{
+  options: DropdownOption[]
+  buttonContent?: any
+  className?: string
 }>(), {
   className: '',
-  buttonContent: null
-});
+  buttonContent: null,
+})
 
-const isOpen = ref(false);
-const dropdownRef = ref<HTMLDivElement | null>(null);
-let timeoutId: number | null = null;
+const isOpen = ref(false)
+const dropdownRef = ref<HTMLDivElement | null>(null)
+let timeoutId: number | null = null
 
 onUnmounted(() => {
   if (timeoutId) {
-    window.clearTimeout(timeoutId);
+    window.clearTimeout(timeoutId)
   }
-});
+})
 
-const handleMouseLeave = () => {
+function handleMouseLeave() {
   timeoutId = window.setTimeout(() => {
-    isOpen.value = false;
-  }, 300); // Delay before closing
-};
+    isOpen.value = false
+  }, 300) // Delay before closing
+}
 
-const handleMouseEnter = () => {
+function handleMouseEnter() {
   if (timeoutId) {
-    window.clearTimeout(timeoutId);
-    timeoutId = null;
+    window.clearTimeout(timeoutId)
+    timeoutId = null
   }
-  isOpen.value = true;
-};
+  isOpen.value = true
+}
 
-const handleOptionClick = (option: DropdownOption) => {
-  option.onClick();
-  isOpen.value = false;
-};
+function handleOptionClick(option: DropdownOption) {
+  option.onClick()
+  isOpen.value = false
+}
 </script>
 
 <template>
-  <div 
-    :class="`relative ${className}`"
+  <div
     ref="dropdownRef"
+    :class="`relative ${className}`"
     @mouseenter="handleMouseEnter"
     @mouseleave="handleMouseLeave"
   >
     <div class="flex">
-      <slot></slot>
+      <slot />
     </div>
-    
-    <div 
+
+    <div
       :class="`absolute bottom-full right-0 mb-2 w-48 transform transition-all duration-200 ${
-        isOpen 
+        isOpen
           ? 'opacity-100 translate-y-0 visible'
           : 'opacity-0 translate-y-1 invisible'
       }`"
@@ -68,13 +68,13 @@ const handleOptionClick = (option: DropdownOption) => {
           v-for="(option, index) in options"
           :key="index"
           type="button"
-          @click="handleOptionClick(option)"
           class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          @click="handleOptionClick(option)"
         >
           {{ option.label }}
         </button>
       </div>
-      <div class="absolute -bottom-2 right-4 w-4 h-4 transform rotate-45 bg-white border-r border-b border-gray-200"></div>
+      <div class="absolute -bottom-2 right-4 w-4 h-4 transform rotate-45 bg-white border-r border-b border-gray-200" />
     </div>
   </div>
-</template> 
+</template>

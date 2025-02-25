@@ -1,137 +1,137 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import { PlusCircle, Wand2, Trash2 } from 'lucide-vue-next';
-import type { Visual, LineHeight, Tag } from '../../types';
-import { generateRandomArticle } from '../../utils/articleGenerator'; 
-import { calculateWordsPerPage, calculateRequiredPages, ratioToPercent } from '../../utils/calculations';
-import { useTagStore } from '../../store/tagStore';
-import BasicInfo from './BasicInfo.vue';
-import ContentLength from './ContentLength.vue';
-import Visuals from './Visuals.vue';
+import type { LineHeight, Tag, Visual } from '../../types'
+import { PlusCircle, Trash2, Wand2 } from 'lucide-vue-next'
+import { computed, ref, watch } from 'vue'
+import { useTagStore } from '../../store/tagStore'
+import { generateRandomArticle } from '../../utils/articleGenerator'
+import { calculateRequiredPages, ratioToPercent } from '../../utils/calculations'
+import BasicInfo from './BasicInfo.vue'
+import ContentLength from './ContentLength.vue'
+import Visuals from './Visuals.vue'
 
 const props = defineProps<{
-  article?: any;
-}>();
+  article?: any
+}>()
 
 const emit = defineEmits<{
-  (e: 'add', article: any): void;
-  (e: 'delete', id: string): void;
-}>();
+  (e: 'add', article: any): void
+  (e: 'delete', id: string): void
+}>()
 
 // Get tags from the Pinia store
-const tagStore = useTagStore();
-const availableTags = computed(() => tagStore.tags);
+const tagStore = useTagStore()
+const availableTags = computed(() => tagStore.tags)
 
-const title = ref(props.article?.title || '');
-const url = ref(props.article?.url || '');
-const tags = ref<Tag[]>(props.article?.tags || []);
-const wordCount = ref(props.article?.wordCount?.toString() || '');
-const pageCount = ref(props.article?.pageCount?.toString() || '1');
-const columns = ref<1 | 2 | 3>(props.article?.columns || 1);
-const visuals = ref<Visual[]>(props.article?.visuals || []);
-const useWordCount = ref(true);
-const lineHeight = ref<LineHeight>(props.article?.lineHeight || '1/50');
+const title = ref(props.article?.title || '')
+const url = ref(props.article?.url || '')
+const tags = ref<Tag[]>(props.article?.tags || [])
+const wordCount = ref(props.article?.wordCount?.toString() || '')
+const pageCount = ref(props.article?.pageCount?.toString() || '1')
+const columns = ref<1 | 2 | 3>(props.article?.columns || 1)
+const visuals = ref<Visual[]>(props.article?.visuals || [])
+const useWordCount = ref(true)
+const lineHeight = ref<LineHeight>(props.article?.lineHeight || '1/50')
 
 // Watch for changes in wordCount, lineHeight, columns, and visuals
 // to update pageCount when using wordCount
 watch([wordCount, useWordCount, lineHeight, columns, visuals], () => {
   if (useWordCount.value) {
-    const words = parseInt(wordCount.value) || 0;
+    const words = Number.parseInt(wordCount.value) || 0
     // Use the same calculation as in ContentLength.vue
-    const baseWordsPerPage = 600;
-    const wordsPerPage = baseWordsPerPage * columns.value;
-    const pagesForWords = Math.max(1, Math.ceil(words / wordsPerPage));
-    const pagesForVisuals = calculateRequiredPages(visuals.value);
-    const calculatedPages = Math.max(pagesForWords, pagesForVisuals);
-    pageCount.value = calculatedPages.toString();
+    const baseWordsPerPage = 600
+    const wordsPerPage = baseWordsPerPage * columns.value
+    const pagesForWords = Math.max(1, Math.ceil(words / wordsPerPage))
+    const pagesForVisuals = calculateRequiredPages(visuals.value)
+    const calculatedPages = Math.max(pagesForWords, pagesForVisuals)
+    pageCount.value = calculatedPages.toString()
   }
-});
+})
 
 // Watch for changes in visuals to update pageCount when not using wordCount
 watch([visuals, useWordCount, pageCount], () => {
   if (!useWordCount.value) {
-    const pagesForVisuals = calculateRequiredPages(visuals.value);
-    const currentPages = parseInt(pageCount.value) || 1;
+    const pagesForVisuals = calculateRequiredPages(visuals.value)
+    const currentPages = Number.parseInt(pageCount.value) || 1
     if (pagesForVisuals > currentPages) {
-      pageCount.value = pagesForVisuals.toString();
+      pageCount.value = pagesForVisuals.toString()
     }
   }
-});
+})
 
-const handleSubmit = (e: Event) => {
-  e.preventDefault();
-  const totalPages = parseInt(pageCount.value) || 1;
+function handleSubmit(e: Event) {
+  e.preventDefault()
+  const totalPages = Number.parseInt(pageCount.value) || 1
   // Use the same calculation as in ContentLength.vue
-  const baseWordsPerPage = 600;
-  const wordsPerPage = baseWordsPerPage * columns.value;
-  
+  const baseWordsPerPage = 600
+  const wordsPerPage = baseWordsPerPage * columns.value
+
   // Ensure visuals have valid page numbers
   const updatedVisuals = visuals.value.map(visual => ({
     ...visual,
     page: Math.min(Math.max(1, visual.page || 1), totalPages),
-    spaceOccupied: (ratioToPercent(visual.width) * ratioToPercent(visual.height)) / 100
-  }));
+    spaceOccupied: (ratioToPercent(visual.width) * ratioToPercent(visual.height)) / 100,
+  }))
 
   emit('add', {
     title: title.value,
     content: props.article?.content || '',
     tags: tags.value,
     url: url.value,
-    wordCount: useWordCount.value ? (parseInt(wordCount.value) || 0) : 0,
+    wordCount: useWordCount.value ? (Number.parseInt(wordCount.value) || 0) : 0,
     pageCount: totalPages,
     visuals: updatedVisuals,
     columns: columns.value,
     wordsPerPage,
     lineHeight: lineHeight.value,
     isLocked: false,
-    pages: []
-  });
-};
+    pages: [],
+  })
+}
 
-const handleRandomArticleByType = (type: 'regular' | 'cover' | 'full-page') => {
-  const random = generateRandomArticle(availableTags.value, type);
-  title.value = random.title;
-  tags.value = random.tags;
-  wordCount.value = random.wordCount.toString();
-  columns.value = random.columns;
-  lineHeight.value = random.lineHeight;
-  visuals.value = random.visuals.map(v => ({ ...v, id: Math.random().toString(36).substring(2, 9) }));
-  useWordCount.value = true;
-};
+function handleRandomArticleByType(type: 'regular' | 'cover' | 'full-page') {
+  const random = generateRandomArticle(availableTags.value, type)
+  title.value = random.title
+  tags.value = random.tags
+  wordCount.value = random.wordCount.toString()
+  columns.value = random.columns
+  lineHeight.value = random.lineHeight
+  visuals.value = random.visuals.map(v => ({ ...v, id: Math.random().toString(36).substring(2, 9) }))
+  useWordCount.value = true
+}
 
-const handleTitleChange = (newTitle: string) => {
-  title.value = newTitle;
-};
+function handleTitleChange(newTitle: string) {
+  title.value = newTitle
+}
 
-const handleUrlChange = (newUrl: string) => {
-  url.value = newUrl;
-};
+function handleUrlChange(newUrl: string) {
+  url.value = newUrl
+}
 
-const handleTagsChange = (newTags: Tag[]) => {
-  tags.value = newTags;
-};
+function handleTagsChange(newTags: Tag[]) {
+  tags.value = newTags
+}
 
-const handleUseWordCountChange = (value: boolean) => {
-  useWordCount.value = value;
-};
+function handleUseWordCountChange(value: boolean) {
+  useWordCount.value = value
+}
 
-const handleWordCountChange = (value: string) => {
-  wordCount.value = value;
-};
+function handleWordCountChange(value: string) {
+  wordCount.value = value
+}
 
-const handlePageCountChange = (value: string) => {
-  pageCount.value = value;
-};
+function handlePageCountChange(value: string) {
+  pageCount.value = value
+}
 
-const handleLineHeightChange = (value: LineHeight) => {
-  lineHeight.value = value;
-};
+function handleLineHeightChange(value: LineHeight) {
+  lineHeight.value = value
+}
 
-const handleColumnsChange = (value: 1 | 2 | 3) => {
-  columns.value = value;
-};
+function handleColumnsChange(value: 1 | 2 | 3) {
+  columns.value = value
+}
 
-const handleAddVisual = () => {
+function handleAddVisual() {
   visuals.value.push({
     id: Math.random().toString(36).substring(2, 9),
     title: '',
@@ -142,77 +142,77 @@ const handleAddVisual = () => {
     y: 0,
     page: 1,
     spaceOccupied: 0,
-    url: ''
-  });
-};
+    url: '',
+  })
+}
 
-const handleUpdateVisual = (index: number, field: keyof Visual, value: any) => {
-  const newVisuals = [...visuals.value];
-  newVisuals[index] = { ...newVisuals[index], [field]: value };
-  visuals.value = newVisuals;
-};
+function handleUpdateVisual(index: number, field: keyof Visual, value: any) {
+  const newVisuals = [...visuals.value]
+  newVisuals[index] = { ...newVisuals[index], [field]: value }
+  visuals.value = newVisuals
+}
 
-const handleRemoveVisual = (index: number) => {
-  visuals.value = visuals.value.filter((_, i) => i !== index);
-};
+function handleRemoveVisual(index: number) {
+  visuals.value = visuals.value.filter((_, i) => i !== index)
+}
 
-const handleDelete = () => {
+function handleDelete() {
   if (props.article?.id) {
-    emit('delete', props.article.id);
+    emit('delete', props.article.id)
   }
-};
+}
 </script>
 
 <template>
-  <form @submit="handleSubmit" class="space-y-6">
+  <form class="space-y-6" @submit="handleSubmit">
     <BasicInfo
       :title="title"
       :tags="tags"
       :url="url"
-      :isEditing="!!article"
-      @titleChange="handleTitleChange"
-      @urlChange="handleUrlChange"
-      @tagsChange="handleTagsChange"
+      :is-editing="!!article"
+      @title-change="handleTitleChange"
+      @url-change="handleUrlChange"
+      @tags-change="handleTagsChange"
     />
 
     <ContentLength
-      :useWordCount="useWordCount"
-      :wordCount="wordCount"
-      :pageCount="pageCount"
-      :lineHeight="lineHeight"
+      :use-word-count="useWordCount"
+      :word-count="wordCount"
+      :page-count="pageCount"
+      :line-height="lineHeight"
       :columns="columns"
-      @useWordCountChange="handleUseWordCountChange"
-      @wordCountChange="handleWordCountChange"
-      @pageCountChange="handlePageCountChange"
-      @lineHeightChange="handleLineHeightChange"
-      @columnsChange="handleColumnsChange"
+      @use-word-count-change="handleUseWordCountChange"
+      @word-count-change="handleWordCountChange"
+      @page-count-change="handlePageCountChange"
+      @line-height-change="handleLineHeightChange"
+      @columns-change="handleColumnsChange"
     />
 
     <Visuals
       :visuals="visuals"
-      :pageCount="parseInt(pageCount)"
+      :page-count="parseInt(pageCount)"
       @add="handleAddVisual"
       @update="handleUpdateVisual"
       @remove="handleRemoveVisual"
     />
-    
+
     <div class="flex justify-end space-x-3">
       <button
         v-if="article && article.id"
         type="button"
-        @click="handleDelete"
         class="inline-flex items-center px-4 py-2 border border-red-300 shadow-xs text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        @click="handleDelete"
       >
         <Trash2 class="w-4 h-4 mr-2" />
         Delete Article
       </button>
-      
+
       <div class="relative group">
         <div class="flex">
           <button
             type="button"
-            @click="handleRandomArticleByType('regular')"
             class="inline-flex items-center px-4 py-2 border border-r-0 border-gray-300 shadow-xs text-sm font-medium rounded-l-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            @click="handleRandomArticleByType('regular')"
           >
             <Wand2 class="w-4 h-4 mr-2" />
             Random Article
@@ -226,36 +226,36 @@ const handleDelete = () => {
             </svg>
           </button>
         </div>
-        
+
         <!-- Dropdown menu -->
         <div class="absolute bottom-full right-0 mb-2 w-48 transform transition-all duration-200 opacity-0 translate-y-1 invisible group-hover:opacity-100 group-hover:translate-y-0 group-hover:visible">
           <div class="bg-white rounded-md shadow-lg py-1 border border-gray-200">
             <button
               type="button"
-              @click="handleRandomArticleByType('regular')"
               class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              @click="handleRandomArticleByType('regular')"
             >
               Regular Article
             </button>
             <button
               type="button"
-              @click="handleRandomArticleByType('cover')"
               class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              @click="handleRandomArticleByType('cover')"
             >
               Cover Page
             </button>
             <button
               type="button"
-              @click="handleRandomArticleByType('full-page')"
               class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              @click="handleRandomArticleByType('full-page')"
             >
               Full Page Image
             </button>
           </div>
-          <div class="absolute -bottom-2 right-4 w-4 h-4 transform rotate-45 bg-white border-r border-b border-gray-200"></div>
+          <div class="absolute -bottom-2 right-4 w-4 h-4 transform rotate-45 bg-white border-r border-b border-gray-200" />
         </div>
       </div>
-      
+
       <button
         type="submit"
         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-xs text-white bg-blue-600 hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -265,4 +265,4 @@ const handleDelete = () => {
       </button>
     </div>
   </form>
-</template> 
+</template>

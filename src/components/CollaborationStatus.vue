@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { Users } from 'lucide-vue-next';
+import { Users } from 'lucide-vue-next'
 
-const props = withDefaults(defineProps<{
-  isCollaborating: boolean;
-  peersCount: number;
-  isEditingAllowed?: boolean;
+withDefaults(defineProps<{
+  isCollaborating: boolean
+  peersCount: number
+  isEditingAllowed?: boolean
 }>(), {
-  isEditingAllowed: true
-});
+  isEditingAllowed: true,
+})
 </script>
 
 <template>
@@ -20,4 +20,4 @@ const props = withDefaults(defineProps<{
       View Only
     </div>
   </div>
-</template> 
+</template>

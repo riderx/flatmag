@@ -1,3 +1,3 @@
-import ImageUploader from './ImageUploader.vue';
+import ImageUploader from './ImageUploader.vue'
 
-export default ImageUploader; 
+export default ImageUploader

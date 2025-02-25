@@ -1,67 +1,70 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { Upload } from 'lucide-vue-next';
-import { handleImageUpload } from '../../utils/imageHandler';
+import { Upload } from 'lucide-vue-next'
+import { ref } from 'vue'
+import { handleImageUpload } from '../../utils/imageHandler'
 
-const props = withDefaults(defineProps<{
-  className?: string;
+withDefaults(defineProps<{
+  className?: string
 }>(), {
-  className: ''
-});
+  className: '',
+})
 
 const emit = defineEmits<{
-  (e: 'upload', base64: string): void;
-  (e: 'error', error: string): void;
-}>();
+  (e: 'upload', base64: string): void
+  (e: 'error', error: string): void
+}>()
 
-const fileInput = ref<HTMLInputElement | null>(null);
-const isUploading = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null)
+const isUploading = ref(false)
 
-const handleUploadClick = () => {
+function handleUploadClick() {
   if (fileInput.value) {
-    fileInput.value.click();
+    fileInput.value.click()
   }
-};
+}
 
-const handleFileChange = async (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
+async function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file)
+    return
 
-  isUploading.value = true;
+  isUploading.value = true
   try {
-    const result = await handleImageUpload(file);
+    const result = await handleImageUpload(file)
     if (result.error || !result.base64) {
-      emit('error', result.error || 'Failed to upload image');
-    } else {
-      emit('upload', result.base64);
+      emit('error', result.error || 'Failed to upload image')
     }
-  } finally {
-    isUploading.value = false;
-    if (fileInput.value) {
-      fileInput.value.value = '';
+    else {
+      emit('upload', result.base64)
     }
   }
-};
+  finally {
+    isUploading.value = false
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+  }
+}
 </script>
 
 <template>
   <div>
     <input
-      type="file"
       ref="fileInput"
+      type="file"
       class="hidden"
       accept="image/*"
       @change="handleFileChange"
-    />
+    >
     <button
       type="button"
-      @click="handleUploadClick"
       :disabled="isUploading"
       :class="`inline-flex items-center justify-center text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed ${className}`"
       title="Upload Image"
+      @click="handleUploadClick"
     >
       <Upload :class="`w-5 h-5 ${isUploading ? 'animate-pulse' : ''}`" />
     </button>
   </div>
-</template> 
+</template>

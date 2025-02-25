@@ -1,47 +1,47 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useMeta } from 'vue-meta';
-import { RouterLink, useRouter } from 'vue-router';
-import { Layout, Plus, Trash2, Calendar, Hash, FileText } from 'lucide-vue-next';
-import { useMagazineListStore } from '@src/store/magazineListStore';
-import Modal from '../components/Modal.vue';
-import type { Magazine } from '@src/types';
-import { pageRatios } from '../types';
+import { useMagazineListStore } from '@src/store/magazineListStore'
+import { Calendar, FileText, Hash, Layout, Plus, Trash2 } from 'lucide-vue-next'
+import { onMounted, ref } from 'vue'
+import { useMeta } from 'vue-meta'
+import { useRouter } from 'vue-router'
+import Modal from '../components/Modal.vue'
+import { pageRatios } from '../types'
 
 useMeta({
   title: 'My Magazines - FlatMag',
   meta: [
     {
       name: 'description',
-      content: 'View and manage your magazine flat plans.'
-    }
-  ]
-});
+      content: 'View and manage your magazine flat plans.',
+    },
+  ],
+})
 
-const router = useRouter();
-const magazineListStore = useMagazineListStore();
-const isLoading = ref(true);
-const showCreateModal = ref(false);
-const showDeleteModal = ref(false);
-const magazineToDelete = ref<string | null>(null);
+const router = useRouter()
+const magazineListStore = useMagazineListStore()
+const isLoading = ref(true)
+const showCreateModal = ref(false)
+const showDeleteModal = ref(false)
+const magazineToDelete = ref<string | null>(null)
 const newMagazine = ref({
   title: '',
   issue_number: '1',
   publication_date: new Date().toISOString().split('T')[0],
-  page_ratio: '1/1.4142' as const
-});
+  page_ratio: '1/1.4142' as const,
+})
 
 onMounted(async () => {
   try {
     // For now, simulate loading from localStorage
-    const storedMagazines = JSON.parse(localStorage.getItem('magazines') || '[]');
-    magazineListStore.setMagazines(storedMagazines);
-  } finally {
-    isLoading.value = false;
+    const storedMagazines = JSON.parse(localStorage.getItem('magazines') || '[]')
+    magazineListStore.setMagazines(storedMagazines)
   }
-});
+  finally {
+    isLoading.value = false
+  }
+})
 
-const createMagazine = () => {
+function createMagazine() {
   const newMagazineData = {
     id: Math.random().toString(36).substring(2, 9),
     title: newMagazine.value.title,
@@ -56,7 +56,7 @@ const createMagazine = () => {
       articles: [],
       history: {
         past: [],
-        future: []
+        future: [],
       },
       pages: 4,
       pageMargins: {},
@@ -69,62 +69,64 @@ const createMagazine = () => {
       title: newMagazine.value.title,
       issueNumber: newMagazine.value.issue_number,
       publicationDate: newMagazine.value.publication_date,
-      pageRatio: newMagazine.value.page_ratio
-    }
-  };
+      pageRatio: newMagazine.value.page_ratio,
+    },
+  }
 
   // Add to store
-  magazineListStore.addMagazine(newMagazineData);
-  
+  magazineListStore.addMagazine(newMagazineData)
+
   // Save to localStorage
-  const magazines = JSON.parse(localStorage.getItem('magazines') || '[]');
-  magazines.push(newMagazineData);
-  localStorage.setItem('magazines', JSON.stringify(magazines));
-  
+  const magazines = JSON.parse(localStorage.getItem('magazines') || '[]')
+  magazines.push(newMagazineData)
+  localStorage.setItem('magazines', JSON.stringify(magazines))
+
   // Reset and close modal
   newMagazine.value = {
     title: '',
     issue_number: '1',
     publication_date: new Date().toISOString().split('T')[0],
-    page_ratio: '1/1.4142' as const
-  };
-  showCreateModal.value = false;
-};
+    page_ratio: '1/1.4142' as const,
+  }
+  showCreateModal.value = false
+}
 
-const confirmDeleteMagazine = (id: string) => {
-  magazineToDelete.value = id;
-  showDeleteModal.value = true;
-};
+function confirmDeleteMagazine(id: string) {
+  magazineToDelete.value = id
+  showDeleteModal.value = true
+}
 
-const deleteMagazine = () => {
+function deleteMagazine() {
   if (magazineToDelete.value) {
     // Remove from store
-    magazineListStore.deleteMagazine(magazineToDelete.value);
-    
-    // Save to localStorage
-    const magazines = JSON.parse(localStorage.getItem('magazines') || '[]');
-    const updated = magazines.filter((m: any) => m.id !== magazineToDelete.value);
-    localStorage.setItem('magazines', JSON.stringify(updated));
-    
-    // Reset and close modal
-    magazineToDelete.value = null;
-    showDeleteModal.value = false;
-  }
-};
+    magazineListStore.deleteMagazine(magazineToDelete.value)
 
-const openMagazine = (id: string) => {
-  router.push(`/flat-plan/${id}`);
-};
+    // Save to localStorage
+    const magazines = JSON.parse(localStorage.getItem('magazines') || '[]')
+    const updated = magazines.filter((m: any) => m.id !== magazineToDelete.value)
+    localStorage.setItem('magazines', JSON.stringify(updated))
+
+    // Reset and close modal
+    magazineToDelete.value = null
+    showDeleteModal.value = false
+  }
+}
+
+function openMagazine(id: string) {
+  router.push(`/flat-plan/${id}`)
+}
 </script>
 
 <template>
   <div class="min-h-screen py-12 bg-gray-100">
     <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
       <div class="flex items-center justify-between mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">My Magazines</h1>
+        <h1 class="text-3xl font-bold text-gray-900">
+          My Magazines
+        </h1>
         <button
-          @click="showCreateModal = true"
           class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-xs hover:bg-blue-700"
+          @click="showCreateModal = true"
         >
           <Plus class="w-5 h-5 mr-2" />
           New Magazine
@@ -140,11 +142,15 @@ const openMagazine = (id: string) => {
 
       <div v-else-if="magazineListStore.magazines.length === 0" class="p-8 text-center bg-white rounded-lg shadow-xs">
         <Layout class="w-12 h-12 mx-auto mb-4 text-gray-400" />
-        <h3 class="mb-2 text-lg font-medium text-gray-900">No magazines yet</h3>
-        <p class="mb-4 text-gray-500">Create your first magazine to get started</p>
+        <h3 class="mb-2 text-lg font-medium text-gray-900">
+          No magazines yet
+        </h3>
+        <p class="mb-4 text-gray-500">
+          Create your first magazine to get started
+        </p>
         <button
-          @click="showCreateModal = true"
           class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-xs hover:bg-blue-700"
+          @click="showCreateModal = true"
         >
           <Plus class="w-5 h-5 mr-2" />
           Create Magazine
@@ -171,8 +177,8 @@ const openMagazine = (id: string) => {
               </div>
               <button
                 v-if="!magazine.isShared"
-                @click="confirmDeleteMagazine(magazine.id)"
                 class="text-gray-400 hover:text-red-600"
+                @click="confirmDeleteMagazine(magazine.id)"
               >
                 <Trash2 class="w-5 h-5" />
               </button>
@@ -192,8 +198,8 @@ const openMagazine = (id: string) => {
               </div>
             </div>
             <button
-              @click="openMagazine(magazine.id)"
               class="inline-flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200"
+              @click="openMagazine(magazine.id)"
             >
               Open
             </button>
@@ -203,7 +209,7 @@ const openMagazine = (id: string) => {
     </div>
 
     <!-- Create Magazine Modal -->
-    <Modal :isOpen="showCreateModal" @close="showCreateModal = false">
+    <Modal :is-open="showCreateModal" @close="showCreateModal = false">
       <div>
         <h2 class="mb-6 text-2xl font-bold text-gray-900">
           Create New Magazine
@@ -213,12 +219,12 @@ const openMagazine = (id: string) => {
             Title
           </label>
           <input
-            type="text"
             id="title"
             v-model="newMagazine.title"
+            type="text"
             class="block w-full h-10 mt-1 text-xl border-gray-300 rounded-md shadow-xs focus:border-blue-500 focus:ring-blue-500"
             placeholder="Enter magazine title"
-          />
+          >
         </div>
 
         <div class="mt-6">
@@ -226,12 +232,12 @@ const openMagazine = (id: string) => {
             Issue Number
           </label>
           <input
-            type="text"
             id="issue_number"
             v-model="newMagazine.issue_number"
+            type="text"
             class="block w-full h-10 mt-1 border-gray-300 rounded-md shadow-xs focus:border-blue-500 focus:ring-blue-500"
             placeholder="e.g., 1, 2, Spring 2025, etc."
-          />
+          >
         </div>
 
         <div class="mt-6">
@@ -239,11 +245,11 @@ const openMagazine = (id: string) => {
             Publication Date
           </label>
           <input
-            type="date"
             id="publication_date"
             v-model="newMagazine.publication_date"
+            type="date"
             class="block w-full h-10 mt-1 border-gray-300 rounded-md shadow-xs focus:border-blue-500 focus:ring-blue-500"
-          />
+          >
         </div>
 
         <div class="mt-6">
@@ -263,15 +269,15 @@ const openMagazine = (id: string) => {
 
         <div class="flex justify-end mt-8 space-x-3">
           <button
-            @click="showCreateModal = false"
             class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-xs hover:bg-gray-50 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            @click="showCreateModal = false"
           >
             Cancel
           </button>
           <button
-            @click="createMagazine"
             :disabled="!newMagazine.title || !newMagazine.issue_number"
             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-xs hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="createMagazine"
           >
             <Plus class="w-4 h-4 mr-2" />
             Create
@@ -281,10 +287,12 @@ const openMagazine = (id: string) => {
     </Modal>
 
     <!-- Delete Confirmation Modal -->
-    <Modal :isOpen="showDeleteModal" @close="showDeleteModal = false">
+    <Modal :is-open="showDeleteModal" @close="showDeleteModal = false">
       <div class="space-y-6">
         <div>
-          <h3 class="text-lg font-medium text-red-600">Delete Magazine</h3>
+          <h3 class="text-lg font-medium text-red-600">
+            Delete Magazine
+          </h3>
           <p class="mt-2 text-sm text-gray-500">
             {{ magazineToDelete && magazineListStore.magazines.find(m => m.id === magazineToDelete)?.isShared
               ? "Are you sure you want to remove this shared magazine from your list?"
@@ -294,14 +302,14 @@ const openMagazine = (id: string) => {
 
         <div class="flex justify-end space-x-3">
           <button
-            @click="showDeleteModal = false"
             class="px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50"
+            @click="showDeleteModal = false"
           >
             Cancel
           </button>
           <button
-            @click="deleteMagazine"
             class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            @click="deleteMagazine"
           >
             {{ magazineToDelete && magazineListStore.magazines.find(m => m.id === magazineToDelete)?.isShared
               ? "Remove"
@@ -311,4 +319,4 @@ const openMagazine = (id: string) => {
       </div>
     </Modal>
   </div>
-</template> 
+</template>

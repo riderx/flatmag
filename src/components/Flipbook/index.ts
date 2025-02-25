@@ -1,3 +1,3 @@
-import FlipbookView from './FlipbookView.vue';
+import FlipbookView from './FlipbookView.vue'
 
-export default FlipbookView; 
+export default FlipbookView

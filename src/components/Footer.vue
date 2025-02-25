@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { Layout, Twitter, Github, Linkedin } from 'lucide-vue-next';
-import { RouterLink } from 'vue-router';
+import { Github, Layout, Linkedin, Twitter } from 'lucide-vue-next'
+import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
-const currentYear = ref(new Date().getFullYear());
+const currentYear = ref(new Date().getFullYear())
 </script>
 
 <template>
@@ -20,9 +20,11 @@ const currentYear = ref(new Date().getFullYear());
             Save time, reduce errors, and collaborate seamlessly.
           </p>
         </div>
-        
+
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-wider mb-4">Product</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wider mb-4">
+            Product
+          </h3>
           <ul class="space-y-3">
             <li>
               <RouterLink to="/flat-plan" class="text-gray-400 hover:text-white">
@@ -43,7 +45,9 @@ const currentYear = ref(new Date().getFullYear());
         </div>
 
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-wider mb-4">Connect</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wider mb-4">
+            Connect
+          </h3>
           <div class="flex space-x-4">
             <a href="https://twitter.com" class="text-gray-400 hover:text-white">
               <Twitter class="w-5 h-5" />
@@ -57,10 +61,10 @@ const currentYear = ref(new Date().getFullYear());
           </div>
         </div>
       </div>
-      
+
       <div class="mt-8 pt-8 border-t border-gray-800 text-center text-gray-400">
         <p>© {{ currentYear }} FlatMag. All rights reserved.</p>
       </div>
     </div>
   </footer>
-</template> 
+</template>

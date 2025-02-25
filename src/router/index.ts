@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -9,25 +9,25 @@ const router = createRouter({
       component: () => import('@src/pages/LandingPage.vue'),
       meta: {
         layout: 'default',
-        showFooter: true
-      }
+        showFooter: true,
+      },
     },
     {
       path: '/magazines',
       name: 'MagazineList',
-      component: () => import('@src/pages/MagazineList.vue')
+      component: () => import('@src/pages/MagazineList.vue'),
     },
     {
       path: '/flat-plan/:id',
       name: 'FlatPlan',
-      component: () => import('@src/pages/FlatPlan.vue')
+      component: () => import('@src/pages/FlatPlan.vue'),
     },
     {
       path: '/share',
       name: 'SharePage',
-      component: () => import('@src/pages/SharePage.vue')
-    }
-  ]
-});
+      component: () => import('@src/pages/SharePage.vue'),
+    },
+  ],
+})
 
-export default router; 
+export default router

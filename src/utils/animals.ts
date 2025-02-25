@@ -13,9 +13,9 @@ const animals = [
   { name: 'Dolphin', color: '#0EA5E9' },
   { name: 'Elephant', color: '#64748B' },
   { name: 'Giraffe', color: '#CA8A04' },
-  { name: 'Kangaroo', color: '#A16207' }
-];
+  { name: 'Kangaroo', color: '#A16207' },
+]
 
-export const getRandomAnimal = () => {
-  return animals[Math.floor(Math.random() * animals.length)];
-};
+export function getRandomAnimal() {
+  return animals[Math.floor(Math.random() * animals.length)]
+}

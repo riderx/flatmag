@@ -1,39 +1,34 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import TagInput from '../TagInput.vue';
-import type { Tag } from '../../types';
-import { inputStyles } from './styles';
-import { useMagazineStore } from '../../store/magazineStore';
+import type { Tag } from '../../types'
+import TagInput from '../TagInput.vue'
+import { inputStyles } from './styles'
 
 defineProps<{
-  title: string;
-  url: string;
-  tags: Tag[];
-  isEditing: boolean;
-}>();
+  title: string
+  url: string
+  tags: Tag[]
+  isEditing: boolean
+}>()
 
 const emit = defineEmits<{
-  (e: 'titleChange', title: string): void;
-  (e: 'urlChange', url: string): void;
-  (e: 'tagsChange', tags: Tag[]): void;
-}>();
+  (e: 'titleChange', title: string): void
+  (e: 'urlChange', url: string): void
+  (e: 'tagsChange', tags: Tag[]): void
+}>()
 
-// Get the magazine store to access all tags
-const magazineStore = useMagazineStore();
+function handleTitleChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  emit('titleChange', target.value)
+}
 
-const handleTitleChange = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  emit('titleChange', target.value);
-};
+function handleUrlChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  emit('urlChange', target.value)
+}
 
-const handleUrlChange = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  emit('urlChange', target.value);
-};
-
-const handleTagsChange = (tags: Tag[]) => {
-  emit('tagsChange', tags);
-};
+function handleTagsChange(tags: Tag[]) {
+  emit('tagsChange', tags)
+}
 </script>
 
 <template>
@@ -46,13 +41,13 @@ const handleTagsChange = (tags: Tag[]) => {
         Content Title
       </label>
       <input
-        type="text"
         id="title"
+        type="text"
         :value="title"
-        @input="handleTitleChange"
         :class="`${inputStyles} text-xl`"
         required
-      />
+        @input="handleTitleChange"
+      >
     </div>
 
     <div>
@@ -60,19 +55,19 @@ const handleTagsChange = (tags: Tag[]) => {
         Content URL (optional)
       </label>
       <input
-        type="url"
         id="url"
+        type="url"
         :value="url"
-        @input="handleUrlChange"
         :class="inputStyles"
         placeholder="https://example.com"
-      />
+        @input="handleUrlChange"
+      >
     </div>
 
     <div class="mt-4">
       <TagInput
-        :selectedTags="tags"
-        @tagsChange="handleTagsChange"
+        :selected-tags="tags"
+        @tags-change="handleTagsChange"
       />
       <div class="mt-2 flex items-center">
         <div class="text-xs text-gray-500">
@@ -81,4 +76,4 @@ const handleTagsChange = (tags: Tag[]) => {
       </div>
     </div>
   </div>
-</template> 
+</template>

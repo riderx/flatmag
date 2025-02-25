@@ -1,3 +1,3 @@
-import MainContent from './MainContent.vue';
+import MainContent from './MainContent.vue'
 
-export default MainContent; 
+export default MainContent

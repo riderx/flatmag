@@ -1,13 +1,13 @@
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
-  src: string;
-  alt: string;
-  className?: string;
-  style?: Record<string, string>;
+withDefaults(defineProps<{
+  src: string
+  alt: string
+  className?: string
+  style?: Record<string, string>
 }>(), {
   className: '',
-  style: () => ({})
-});
+  style: () => ({}),
+})
 </script>
 
 <template>
@@ -18,6 +18,6 @@ const props = withDefaults(defineProps<{
       class="w-full h-full object-cover rounded-sm pointer-events-none"
       :draggable="false"
       loading="lazy"
-    />
+    >
   </div>
-</template> 
+</template>

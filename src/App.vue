@@ -1,22 +1,21 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
-import Navbar from './components/Navbar.vue';
-import Footer from './components/Footer.vue';
-import { useRoute } from 'vue-router';
-import { onMounted } from 'vue';
-import { useMagazineStore } from './store/magazineStore';
-import { setupStoreWatchers, setMagazineStoreInstance } from './store/mainStore';
+import { onMounted } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import Footer from './components/Footer.vue'
+import Navbar from './components/Navbar.vue'
+import { useMagazineStore } from './store/magazineStore'
+import { setMagazineStoreInstance, setupStoreWatchers } from './store/mainStore'
 
-const route = useRoute();
-const magazineStore = useMagazineStore();
+const route = useRoute()
+const magazineStore = useMagazineStore()
 
 // Set the magazine store instance for non-component access
-setMagazineStoreInstance(magazineStore);
+setMagazineStoreInstance(magazineStore)
 
 // Initialize stores with data from localStorage
 onMounted(() => {
-  setupStoreWatchers();
-});
+  setupStoreWatchers()
+})
 </script>
 
 <template>
@@ -27,4 +26,4 @@ onMounted(() => {
     </div>
     <Footer v-if="route.meta.showFooter" />
   </div>
-</template> 
+</template>

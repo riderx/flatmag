@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { PlusCircle } from 'lucide-vue-next';
-import type { Visual } from '../../types';
-import VisualItem from './VisualItem.vue';
+import type { Visual } from '../../types'
+import { PlusCircle } from 'lucide-vue-next'
+import VisualItem from './VisualItem.vue'
 
 defineProps<{
-  visuals: Visual[];
-  pageCount: number;
-}>();
+  visuals: Visual[]
+  pageCount: number
+}>()
 
 const emit = defineEmits<{
-  (e: 'add'): void;
-  (e: 'update', index: number, field: keyof Visual, value: any): void;
-  (e: 'remove', index: number): void;
-}>();
+  (e: 'add'): void
+  (e: 'update', index: number, field: keyof Visual, value: any): void
+  (e: 'remove', index: number): void
+}>()
 
-const handleAdd = () => {
-  emit('add');
-};
+function handleAdd() {
+  emit('add')
+}
 
-const handleUpdate = (index: number, field: keyof Visual, value: any) => {
-  emit('update', index, field, value);
-};
+function handleUpdate(index: number, field: keyof Visual, value: any) {
+  emit('update', index, field, value)
+}
 
-const handleRemove = (index: number) => {
-  emit('remove', index);
-};
+function handleRemove(index: number) {
+  emit('remove', index)
+}
 </script>
 
 <template>
@@ -35,8 +35,8 @@ const handleRemove = (index: number) => {
       </label>
       <button
         type="button"
-        @click="handleAdd"
         class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+        @click="handleAdd"
       >
         <PlusCircle class="w-4 h-4 mr-2" />
         Add Visual
@@ -47,9 +47,9 @@ const handleRemove = (index: number) => {
       v-for="(visual, index) in visuals"
       :key="visual.id"
       :visual="visual"
-      :pageCount="pageCount"
+      :page-count="pageCount"
       @update="(field, value) => handleUpdate(index, field, value)"
       @remove="() => handleRemove(index)"
     />
   </div>
-</template> 
+</template>

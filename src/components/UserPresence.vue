@@ -1,20 +1,18 @@
 <script setup lang="ts">
-import { Users } from 'lucide-vue-next';
-
 interface User {
-  id: string;
+  id: string
   animal: {
-    name: string;
-    color: string;
-  };
+    name: string
+    color: string
+  }
 }
 
 interface UserPresenceProps {
-  users: User[];
-  currentUserId: string;
+  users: User[]
+  currentUserId: string
 }
 
-defineProps<UserPresenceProps>();
+defineProps<UserPresenceProps>()
 </script>
 
 <template>
@@ -30,9 +28,9 @@ defineProps<UserPresenceProps>();
         <span class="text-xs font-medium text-white">
           {{ user.animal.name.charAt(0) }}
         </span>
-        <span 
-          v-if="user.id === currentUserId" 
-          class="absolute -bottom-1 -right-1 block h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-white" 
+        <span
+          v-if="user.id === currentUserId"
+          class="absolute -bottom-1 -right-1 block h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-white"
         />
       </div>
     </div>
@@ -40,4 +38,4 @@ defineProps<UserPresenceProps>();
       {{ users.length }} active
     </span>
   </div>
-</template> 
+</template>

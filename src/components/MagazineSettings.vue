@@ -1,23 +1,22 @@
 <script setup lang="ts">
-import { Settings } from 'lucide-vue-next';
-import { useMagazineStore } from '../store/magazineStore';
-import { pageRatios } from '../types';
-import { watch } from 'vue';
+import { Settings } from 'lucide-vue-next'
+import { useMagazineStore } from '../store/magazineStore'
+import { pageRatios } from '../types'
 
 defineProps<{
-  isOpen: boolean;
-}>();
+  isOpen: boolean
+}>()
 
-const emit = defineEmits<{
-  (e: 'close'): void;
-}>();
+defineEmits<{
+  (e: 'close'): void
+}>()
 
-const magazineStore = useMagazineStore();
+const magazineStore = useMagazineStore()
 
 // Save changes immediately when settings are updated
-const handleSettingChange = () => {
-  magazineStore.saveToLocalStorage();
-};
+function handleSettingChange() {
+  magazineStore.saveToLocalStorage()
+}
 </script>
 
 <template>
@@ -29,8 +28,8 @@ const handleSettingChange = () => {
           Magazine Settings
         </h2>
         <button
-          @click="$emit('close')"
           class="text-gray-500 hover:text-gray-700"
+          @click="$emit('close')"
         >
           ×
         </button>
@@ -42,12 +41,12 @@ const handleSettingChange = () => {
             Magazine Title
           </label>
           <input
-            type="text"
             v-model="magazineStore.title"
-            @input="handleSettingChange"
+            type="text"
             :disabled="magazineStore.isShared && !magazineStore.allowEdit"
             class="mt-1 block w-full rounded-md border border-gray-300 shadow-xs focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          />
+            @input="handleSettingChange"
+          >
         </div>
 
         <div>
@@ -55,12 +54,12 @@ const handleSettingChange = () => {
             Issue Number
           </label>
           <input
-            type="text"
             v-model="magazineStore.issueNumber"
-            @input="handleSettingChange"
+            type="text"
             :disabled="magazineStore.isShared && !magazineStore.allowEdit"
             class="mt-1 block w-full rounded-md border border-gray-300 shadow-xs focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          />
+            @input="handleSettingChange"
+          >
         </div>
 
         <div>
@@ -68,12 +67,12 @@ const handleSettingChange = () => {
             Publication Date
           </label>
           <input
-            type="date"
             v-model="magazineStore.publicationDate"
-            @input="handleSettingChange"
+            type="date"
             :disabled="magazineStore.isShared && !magazineStore.allowEdit"
             class="mt-1 block w-full rounded-md border border-gray-300 shadow-xs focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          />
+            @input="handleSettingChange"
+          >
         </div>
 
         <div>
@@ -82,9 +81,9 @@ const handleSettingChange = () => {
           </label>
           <select
             v-model="magazineStore.pageRatio"
-            @change="handleSettingChange"
             :disabled="magazineStore.isShared && !magazineStore.allowEdit"
             class="mt-1 block w-full rounded-md border border-gray-300 shadow-xs focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            @change="handleSettingChange"
           >
             <option v-for="ratio in pageRatios" :key="ratio.value" :value="ratio.value">
               {{ ratio.name }} ({{ ratio.description }})
@@ -95,12 +94,12 @@ const handleSettingChange = () => {
 
       <div class="mt-6 flex justify-end">
         <button
-          @click="$emit('close')"
           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-xs text-white bg-blue-600 hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          @click="$emit('close')"
         >
           Close
         </button>
       </div>
     </div>
   </div>
-</template> 
+</template>

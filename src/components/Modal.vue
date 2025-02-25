@@ -1,37 +1,38 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue';
-import { X } from 'lucide-vue-next';
+import { X } from 'lucide-vue-next'
+import { onMounted, onUnmounted, watch } from 'vue'
 
 const props = defineProps<{
-  isOpen: boolean;
-}>();
+  isOpen: boolean
+}>()
 
 const emit = defineEmits<{
-  (e: 'close'): void;
-}>();
+  (e: 'close'): void
+}>()
 
-const handleEscape = (e: KeyboardEvent) => {
+function handleEscape(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-    emit('close');
+    emit('close')
   }
-};
+}
 
 watch(() => props.isOpen, (newValue) => {
   if (newValue) {
-    document.body.style.overflow = 'hidden';
-  } else {
-    document.body.style.overflow = 'unset';
+    document.body.style.overflow = 'hidden'
   }
-});
+  else {
+    document.body.style.overflow = 'unset'
+  }
+})
 
 onMounted(() => {
-  document.addEventListener('keydown', handleEscape);
-});
+  document.addEventListener('keydown', handleEscape)
+})
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleEscape);
-  document.body.style.overflow = 'unset';
-});
+  document.removeEventListener('keydown', handleEscape)
+  document.body.style.overflow = 'unset'
+})
 </script>
 
 <template>
@@ -53,8 +54,8 @@ onUnmounted(() => {
             <X class="h-6 w-6" />
           </button>
         </div>
-        <slot></slot>
+        <slot />
       </div>
     </div>
   </div>
-</template> 
+</template>

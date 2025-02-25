@@ -1,50 +1,42 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import ArticleList from '../ArticleList.vue';
-import MagazineView from '../MagazineView.vue';
-import FlipbookView from '../Flipbook/FlipbookView.vue';
-import type { ZoomLevel } from '../../types';
+import ArticleList from '../ArticleList.vue'
+import FlipbookView from '../Flipbook/FlipbookView.vue'
+import MagazineView from '../MagazineView.vue'
 
 // Define props
-const props = withDefaults(defineProps<{
-  showList?: boolean;
-  showFlipbook?: boolean;
-  articles?: any[];
-  pages?: number;
-  zoomLevel?: any;
-  isEditingAllowed?: boolean;
+withDefaults(defineProps<{
+  showList?: boolean
+  showFlipbook?: boolean
+  articles?: any[]
+  pages?: number
+  zoomLevel?: any
+  isEditingAllowed?: boolean
 }>(), {
   showList: true,
   showFlipbook: false,
   articles: () => [],
   pages: 4,
   zoomLevel: '2',
-  isEditingAllowed: true
-});
+  isEditingAllowed: true,
+})
 
 // Define emits
 const emit = defineEmits<{
-  (e: 'add-page'): void;
-  (e: 'remove-page'): void;
-  (e: 'edit-article', article: any): void;
-  (e: 'update-article', article: any): void;
-  (e: 'delete-article', id: string): void;
-  (e: 'flipbook-close'): void;
-  (e: 'drag-end', event: any): void;
-}>();
-
-// Handle drag end event (for sortable context)
-const handleDragEnd = (event: any) => {
-  emit('drag-end', event);
-};
+  (e: 'addPage'): void
+  (e: 'removePage'): void
+  (e: 'editArticle', article: any): void
+  (e: 'updateArticle', article: any): void
+  (e: 'deleteArticle', id: string): void
+  (e: 'flipbookClose'): void
+}>()
 
 // Event handlers that emit events to parent
-const handleAddPage = () => emit('add-page');
-const handleRemovePage = () => emit('remove-page');
-const handleEditArticle = (article: any) => emit('edit-article', article);
-const handleUpdateArticle = (article: any) => emit('update-article', article);
-const handleDeleteArticle = (id: string) => emit('delete-article', id);
-const handleFlipbookClose = () => emit('flipbook-close');
+const handleAddPage = () => emit('addPage')
+const handleRemovePage = () => emit('removePage')
+const handleEditArticle = (article: any) => emit('editArticle', article)
+const handleUpdateArticle = (article: any) => emit('updateArticle', article)
+const handleDeleteArticle = (id: string) => emit('deleteArticle', id)
+const handleFlipbookClose = () => emit('flipbookClose')
 </script>
 
 <template>
@@ -55,26 +47,26 @@ const handleFlipbookClose = () => emit('flipbook-close');
       <ArticleList
         :articles="articles"
         :pages="pages"
-        :isEditingAllowed="isEditingAllowed"
+        :is-editing-allowed="isEditingAllowed"
         @delete="handleDeleteArticle"
         @edit="handleEditArticle"
       />
     </template>
-    
+
     <!-- Magazine View -->
     <template v-else>
       <MagazineView
         :articles="articles"
         :pages="pages"
-        :zoomLevel="zoomLevel"
-        :isEditingAllowed="isEditingAllowed"
+        :zoom-level="zoomLevel"
+        :is-editing-allowed="isEditingAllowed"
         @add-page="handleAddPage"
         @remove-page="handleRemovePage"
         @edit-article="handleEditArticle"
         @update-article="handleUpdateArticle"
       />
     </template>
-    
+
     <!-- Flipbook View (shown as overlay when active) -->
     <FlipbookView
       v-if="showFlipbook"
@@ -85,4 +77,4 @@ const handleFlipbookClose = () => emit('flipbook-close');
       @update-article="handleUpdateArticle"
     />
   </div>
-</template> 
+</template>

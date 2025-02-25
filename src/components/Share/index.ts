@@ -1,3 +1,3 @@
-import Share from './Share.vue';
+import Share from './Share.vue'
 
-export default Share; 
+export default Share

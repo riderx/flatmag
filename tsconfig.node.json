@@ -1,9 +1,9 @@
 {
-  "include": ["vite.config.*", "vitest.config.*", "cypress.config.*", "playwright.config.*"],
   "compilerOptions": {
     "composite": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
     "types": ["node"]
-  }
+  },
+  "include": ["vite.config.*", "vitest.config.*", "cypress.config.*", "playwright.config.*"]
 }

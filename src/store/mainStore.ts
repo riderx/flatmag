@@ -1,41 +1,41 @@
-import { createPinia } from 'pinia';
-import { watch } from 'vue';
-import { useMagazineStore, type MagazineState } from './magazineStore';
-import { loadSharedState } from '../utils/share';
+import type { MagazineState } from './magazineStore'
+import { createPinia } from 'pinia'
+import { loadSharedState } from '../utils/share'
+import { useMagazineStore } from './magazineStore'
 
 // Create the Pinia instance
-export const pinia = createPinia();
+export const pinia = createPinia()
 
 // Type for the combined state
 interface AppState {
-  magazine: MagazineState;
+  magazine: MagazineState
 }
 
 // Load state from localStorage
-export const loadState = () => {
+export function loadState() {
   try {
     // Get current magazine ID from URL
-    const currentPath = window.location.pathname;
-    const magazineId = currentPath.split('/flat-plan/')[1];
-    
+    const currentPath = window.location.pathname
+    const magazineId = currentPath.split('/flat-plan/')[1]
+
     if (!magazineId) {
-      return undefined;
+      return undefined
     }
-    
+
     // Load magazine from magazines list
-    const magazines = JSON.parse(localStorage.getItem('magazines') || '[]');
-    const magazine = magazines.find((m: { id: string }) => m.id === magazineId);
-    
+    const magazines = JSON.parse(localStorage.getItem('magazines') || '[]')
+    const magazine = magazines.find((m: { id: string }) => m.id === magazineId)
+
     if (!magazine) {
-      return undefined;
+      return undefined
     }
-    
+
     // Get the magazine state or create a default one
     const magazineState = magazine.state || {
       articles: [],
       history: {
         past: [],
-        future: []
+        future: [],
       },
       pages: 4,
       pageMargins: {},
@@ -44,49 +44,51 @@ export const loadState = () => {
       isShared: false,
       allowEdit: true,
       isConnecting: false,
-      shareId: null
-    };
-    
+      shareId: null,
+    }
+
     // Ensure title, issueNumber, publicationDate, and pageRatio are set
-    magazineState.title = magazine.title || 'My Magazine';
-    magazineState.issueNumber = magazine.issue_number || 1;
-    magazineState.publicationDate = magazine.publication_date || new Date().toISOString();
-    magazineState.pageRatio = magazine.page_ratio || '1/1.4142';
-    
+    magazineState.title = magazine.title || 'My Magazine'
+    magazineState.issueNumber = magazine.issue_number || 1
+    magazineState.publicationDate = magazine.publication_date || new Date().toISOString()
+    magazineState.pageRatio = magazine.page_ratio || '1/1.4142'
+
     // Initialize state with magazine data
     const state: AppState = {
-      magazine: magazineState
-    };
-    
-    // Check for shared session
-    const { shareId, permission } = loadSharedState();
-    
-    if (shareId) {
-      state.magazine.isShared = true;
-      state.magazine.allowEdit = permission === 'edit';
-      state.magazine.shareId = shareId;
+      magazine: magazineState,
     }
-    
-    return state;
-  } catch (err) {
-    console.error('Error loading state:', err);
-    return undefined;
+
+    // Check for shared session
+    const { shareId, permission } = loadSharedState()
+
+    if (shareId) {
+      state.magazine.isShared = true
+      state.magazine.allowEdit = permission === 'edit'
+      state.magazine.shareId = shareId
+    }
+
+    return state
   }
-};
+  catch (err) {
+    console.error('Error loading state:', err)
+    return undefined
+  }
+}
 
 // Save state to localStorage
-export const saveState = (magazineStore: ReturnType<typeof useMagazineStore>) => {
+export function saveState(magazineStore: ReturnType<typeof useMagazineStore>) {
   try {
     // Get current magazine ID from URL
-    const currentPath = window.location.pathname;
-    const magazineId = currentPath.split('/flat-plan/')[1];
-    
-    if (!magazineId) return;
-    
+    const currentPath = window.location.pathname
+    const magazineId = currentPath.split('/flat-plan/')[1]
+
+    if (!magazineId)
+      return
+
     // Load and update magazines list
-    const magazines = JSON.parse(localStorage.getItem('magazines') || '[]');
-    const magazineIndex = magazines.findIndex((m: { id: string }) => m.id === magazineId);
-    
+    const magazines = JSON.parse(localStorage.getItem('magazines') || '[]')
+    const magazineIndex = magazines.findIndex((m: { id: string }) => m.id === magazineId)
+
     if (magazineIndex !== -1) {
       // Update magazine with current state
       magazines[magazineIndex] = {
@@ -109,23 +111,24 @@ export const saveState = (magazineStore: ReturnType<typeof useMagazineStore>) =>
           title: magazineStore.title,
           issueNumber: magazineStore.issueNumber,
           publicationDate: magazineStore.publicationDate,
-          pageRatio: magazineStore.pageRatio
-        }
-      };
-      
+          pageRatio: magazineStore.pageRatio,
+        },
+      }
+
       // Save updated magazines list
-      localStorage.setItem('magazines', JSON.stringify(magazines));
+      localStorage.setItem('magazines', JSON.stringify(magazines))
     }
-  } catch (err) {
-    console.error('Error saving state:', err);
   }
-};
+  catch (err) {
+    console.error('Error saving state:', err)
+  }
+}
 
 // This function should be called from a component setup function
-export const setupStoreWatchers = () => {
-  const state = loadState();
-  const magazineStore = useMagazineStore();
-  
+export function setupStoreWatchers() {
+  const state = loadState()
+  const magazineStore = useMagazineStore()
+
   if (state) {
     // Initialize magazine store
     magazineStore.$patch({
@@ -142,24 +145,24 @@ export const setupStoreWatchers = () => {
       title: state.magazine.title,
       issueNumber: state.magazine.issueNumber,
       publicationDate: state.magazine.publicationDate,
-      pageRatio: state.magazine.pageRatio
-    });
-    
+      pageRatio: state.magazine.pageRatio,
+    })
+
     // Save initial state to localStorage
-    magazineStore.saveToLocalStorage();
+    magazineStore.saveToLocalStorage()
   }
-  
-  return { magazineStore };
-};
+
+  return { magazineStore }
+}
 
 // Helper function to safely access the magazine store from non-component contexts
-let magazineStoreInstance: ReturnType<typeof useMagazineStore> | null = null;
+let magazineStoreInstance: ReturnType<typeof useMagazineStore> | null = null
 
-export const getMagazineStore = () => {
-  return magazineStoreInstance;
-};
+export function getMagazineStore() {
+  return magazineStoreInstance
+}
 
 // This should be called from a component to set the store instance
-export const setMagazineStoreInstance = (store: ReturnType<typeof useMagazineStore>) => {
-  magazineStoreInstance = store;
-}; 
+export function setMagazineStoreInstance(store: ReturnType<typeof useMagazineStore>) {
+  magazineStoreInstance = store
+}

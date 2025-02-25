@@ -1,23 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { useRoute } from 'vue-router';
-import { supabase } from '../utils/supabase';
-import { getSessionId } from '../utils/collaboration';
-import { useMagazineStore } from '../store/magazineStore';
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { getSessionId } from '../utils/collaboration'
+import { supabase } from '../utils/supabase'
 
 interface Cursor {
-  id: string;
-  user_id: string;
-  x: number;
-  y: number;
-  color: string;
+  id: string
+  user_id: string
+  x: number
+  y: number
+  color: string
 }
 
-const cursors = ref<Cursor[]>([]);
-const channel = ref<any>(null);
-const route = useRoute();
-const magazineStore = useMagazineStore();
-const currentUserId = getSessionId();
+const cursors = ref<Cursor[]>([])
+const channel = ref<any>(null)
+const route = useRoute()
+const currentUserId = getSessionId()
 
 // Get random color for cursor
 function getRandomColor(): string {
@@ -28,28 +26,29 @@ function getRandomColor(): string {
     '#3B82F6', // Blue
     '#8B5CF6', // Purple
     '#EC4899', // Pink
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
+  ]
+  return colors[Math.floor(Math.random() * colors.length)]
 }
 
 onMounted(() => {
-  const magazineId = route.params.id as string;
-  if (!magazineId) return;
+  const magazineId = route.params.id as string
+  if (!magazineId)
+    return
 
   // Subscribe to cursor updates
-  const cursorChannel = supabase.channel(`cursors-${magazineId}`);
-  
+  const cursorChannel = supabase.channel(`cursors-${magazineId}`)
+
   cursorChannel
     .on('presence', { event: 'sync' }, () => {
-      const state = cursorChannel.presenceState();
-      const cursorState = Object.values(state).flat().map((presence: any) => presence.cursor);
-      cursors.value = cursorState;
+      const state = cursorChannel.presenceState()
+      const cursorState = Object.values(state).flat().map((presence: any) => presence.cursor)
+      cursors.value = cursorState
     })
-    .on('presence', { event: 'join' }, ({ key, newPresences }: { key: string, newPresences: any[] }) => {
-      cursors.value = [...cursors.value, ...newPresences.map((p: any) => p.cursor)];
+    .on('presence', { event: 'join' }, ({ newPresences }: { key: string, newPresences: any[] }) => {
+      cursors.value = [...cursors.value, ...newPresences.map((p: any) => p.cursor)]
     })
-    .on('presence', { event: 'leave' }, ({ key, leftPresences }: { key: string, leftPresences: any[] }) => {
-      cursors.value = cursors.value.filter(c => !leftPresences.some((p: any) => p.cursor.id === c.id));
+    .on('presence', { event: 'leave' }, ({ leftPresences }: { key: string, leftPresences: any[] }) => {
+      cursors.value = cursors.value.filter(c => !leftPresences.some((p: any) => p.cursor.id === c.id))
     })
     .subscribe(async (status: string) => {
       if (status === 'SUBSCRIBED') {
@@ -59,44 +58,45 @@ onMounted(() => {
             user_id: currentUserId,
             x: 0,
             y: 0,
-            color: getRandomColor()
-          }
-        });
+            color: getRandomColor(),
+          },
+        })
       }
-    });
+    })
 
-  channel.value = cursorChannel;
+  channel.value = cursorChannel
 
   // Handle mouse movement
   const handleMouseMove = (e: MouseEvent) => {
-    if (!channel.value || !currentUserId) return;
+    if (!channel.value || !currentUserId)
+      return
 
     const cursor = {
       id: currentUserId,
       user_id: currentUserId,
       x: e.clientX,
       y: e.clientY,
-      color: cursors.value.find(c => c.id === currentUserId)?.color || getRandomColor()
-    };
+      color: cursors.value.find(c => c.id === currentUserId)?.color || getRandomColor(),
+    }
 
-    channel.value.track({ cursor });
-  };
+    channel.value.track({ cursor })
+  }
 
-  window.addEventListener('mousemove', handleMouseMove);
+  window.addEventListener('mousemove', handleMouseMove)
 
   // Cleanup function
   onUnmounted(() => {
-    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mousemove', handleMouseMove)
     if (channel.value) {
-      channel.value.unsubscribe();
+      channel.value.unsubscribe()
     }
-  });
-});
+  })
+})
 
 // Filter out current user's cursor
-const otherCursors = computed(() => 
-  cursors.value.filter(cursor => cursor.user_id !== currentUserId)
-);
+const otherCursors = computed(() =>
+  cursors.value.filter(cursor => cursor.user_id !== currentUserId),
+)
 </script>
 
 <template>
@@ -108,7 +108,7 @@ const otherCursors = computed(() =>
       :style="{
         left: `${cursor.x}px`,
         top: `${cursor.y}px`,
-        transform: 'translate(-50%, -50%)'
+        transform: 'translate(-50%, -50%)',
       }"
     >
       <svg
@@ -127,4 +127,4 @@ const otherCursors = computed(() =>
       </svg>
     </div>
   </div>
-</template> 
+</template>

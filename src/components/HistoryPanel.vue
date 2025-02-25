@@ -1,52 +1,54 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { History, Undo2, Redo2, Trash2 } from 'lucide-vue-next';
-import { useMagazineStore } from '../store/magazineStore';
+import { History, Redo2, Trash2, Undo2 } from 'lucide-vue-next'
+import { ref } from 'vue'
+import { useMagazineStore } from '../store/magazineStore'
 
-const props = defineProps<{
-  isOpen: boolean;
-}>();
+defineProps<{
+  isOpen: boolean
+}>()
 
-const emit = defineEmits<{
-  (e: 'close'): void;
-}>();
+defineEmits<{
+  (e: 'close'): void
+}>()
 
-const magazineStore = useMagazineStore();
-const showResetConfirm = ref(false);
-const resetConfirmStep = ref(0);
+const magazineStore = useMagazineStore()
+const showResetConfirm = ref(false)
+const resetConfirmStep = ref(0)
 
-const handleUndo = () => {
-  magazineStore.undo();
-};
+function handleUndo() {
+  magazineStore.undo()
+}
 
-const handleRedo = () => {
-  magazineStore.redo();
-};
+function handleRedo() {
+  magazineStore.redo()
+}
 
-const handleJumpToHistory = (index: number) => {
-  magazineStore.jumpToHistory(index);
-};
+function handleJumpToHistory(index: number) {
+  magazineStore.jumpToHistory(index)
+}
 
-const handleReset = () => {
+function handleReset() {
   if (resetConfirmStep.value === 0) {
-    showResetConfirm.value = true;
-    resetConfirmStep.value = 1;
-  } else if (resetConfirmStep.value === 1) {
-    resetConfirmStep.value = 2;
-  } else {
-    magazineStore.setConnectionStatus(false);
-    magazineStore.resetState();
-    localStorage.clear();
-    showResetConfirm.value = false;
-    resetConfirmStep.value = 0;
-    window.location.reload();
+    showResetConfirm.value = true
+    resetConfirmStep.value = 1
   }
-};
+  else if (resetConfirmStep.value === 1) {
+    resetConfirmStep.value = 2
+  }
+  else {
+    magazineStore.setConnectionStatus(false)
+    magazineStore.resetState()
+    localStorage.clear()
+    showResetConfirm.value = false
+    resetConfirmStep.value = 0
+    window.location.reload()
+  }
+}
 
-const closeResetConfirm = () => {
-  showResetConfirm.value = false;
-  resetConfirmStep.value = 0;
-};
+function closeResetConfirm() {
+  showResetConfirm.value = false
+  resetConfirmStep.value = 0
+}
 </script>
 
 <template>
@@ -58,7 +60,6 @@ const closeResetConfirm = () => {
       </h2>
       <div class="flex space-x-2">
         <button
-          @click="handleUndo"
           :disabled="magazineStore.history.past.length === 0"
           :class="`p-2 rounded ${
             magazineStore.history.past.length === 0
@@ -66,11 +67,11 @@ const closeResetConfirm = () => {
               : 'text-blue-600 hover:bg-blue-50'
           }`"
           title="Undo (Ctrl+Z)"
+          @click="handleUndo"
         >
           <Undo2 class="w-5 h-5" />
         </button>
         <button
-          @click="handleRedo"
           :disabled="magazineStore.history.future.length === 0"
           :class="`p-2 rounded ${
             magazineStore.history.future.length === 0
@@ -78,19 +79,20 @@ const closeResetConfirm = () => {
               : 'text-blue-600 hover:bg-blue-50'
           }`"
           title="Redo (Ctrl+Y)"
+          @click="handleRedo"
         >
           <Redo2 class="w-5 h-5" />
         </button>
         <button
-          @click="showResetConfirm = true"
           class="p-2 rounded-sm text-red-600 hover:bg-red-50"
           title="Reset All"
+          @click="showResetConfirm = true"
         >
           <Trash2 class="w-5 h-5" />
         </button>
         <button
-          @click="$emit('close')"
           class="text-gray-500 hover:text-gray-700"
+          @click="$emit('close')"
         >
           ×
         </button>
@@ -101,10 +103,12 @@ const closeResetConfirm = () => {
       <button
         v-for="(entry, index) in magazineStore.history.past"
         :key="index"
-        @click="handleJumpToHistory(index)"
         class="w-full text-left p-2 hover:bg-gray-100 rounded-sm"
+        @click="handleJumpToHistory(index)"
       >
-        <div class="text-sm font-medium">{{ entry.description }}</div>
+        <div class="text-sm font-medium">
+          {{ entry.description }}
+        </div>
         <div class="text-xs text-gray-500">
           {{ new Date().toLocaleTimeString() }}
         </div>
@@ -113,18 +117,20 @@ const closeResetConfirm = () => {
         No history yet
       </div>
     </div>
-    
+
     <div v-if="showResetConfirm" class="absolute inset-0 bg-white p-4 space-y-4">
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-red-600">Reset Everything</h3>
+        <h3 class="text-lg font-semibold text-red-600">
+          Reset Everything
+        </h3>
         <button
-          @click="closeResetConfirm"
           class="text-gray-500 hover:text-gray-700"
+          @click="closeResetConfirm"
         >
           ×
         </button>
       </div>
-      
+
       <div class="text-sm text-gray-600">
         <template v-if="resetConfirmStep === 0">
           <p>Are you sure you want to reset everything? This will:</p>
@@ -134,32 +140,36 @@ const closeResetConfirm = () => {
             <li>Reset all settings</li>
             <li>Clear local storage</li>
           </ul>
-          <p class="mt-2 font-medium">This action cannot be undone!</p>
+          <p class="mt-2 font-medium">
+            This action cannot be undone!
+          </p>
         </template>
-        <p v-else-if="resetConfirmStep === 1" class="font-medium">Click again to confirm reset.</p>
+        <p v-else-if="resetConfirmStep === 1" class="font-medium">
+          Click again to confirm reset.
+        </p>
         <p v-else-if="resetConfirmStep === 2" class="font-medium text-red-600">
           Final warning: Click one more time to permanently delete everything.
         </p>
       </div>
-      
+
       <div class="flex justify-end space-x-3">
         <button
-          @click="closeResetConfirm"
           class="px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
+          @click="closeResetConfirm"
         >
           Cancel
         </button>
         <button
-          @click="handleReset"
           :class="`px-3 py-2 text-sm font-medium rounded-md text-white ${
             resetConfirmStep === 2
               ? 'bg-red-600 hover:bg-red-700'
               : 'bg-gray-600 hover:bg-gray-700'
           }`"
+          @click="handleReset"
         >
           {{ resetConfirmStep === 0 ? 'Reset Everything' : 'Confirm Reset' }}
         </button>
       </div>
     </div>
   </div>
-</template> 
+</template>

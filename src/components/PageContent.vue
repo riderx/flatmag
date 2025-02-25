@@ -1,126 +1,111 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { restrictToParentElement } from '@dnd-kit/modifiers';
-import { ratioToPercent } from '../utils/calculations';
-import TextLines from './TextLines.vue';
-import DraggableVisual from './DraggableVisual.vue';
-import { calculatePageAvailableSpace } from '../utils/calculations';
-import { validateVisualPosition } from '../utils/imageHandler';
-import type { Article } from '../types';
+import type { Article } from '../types'
+import { computed } from 'vue'
+import { calculatePageAvailableSpace } from '../utils/calculations'
+import { validateVisualPosition } from '../utils/imageHandler'
+import DraggableVisual from './DraggableVisual.vue'
+import TextLines from './TextLines.vue'
 
 const props = withDefaults(defineProps<{
-  article: Article;
-  pageIndex: number;
-  isFlipbook?: boolean;
-  margins: { top: number; right: number; bottom: number; left: number };
-  isEditingAllowed: boolean;
+  article: Article
+  pageIndex: number
+  isFlipbook?: boolean
+  margins: { top: number, right: number, bottom: number, left: number }
+  isEditingAllowed: boolean
 }>(), {
-  isFlipbook: false
-});
+  isFlipbook: false,
+})
 
 const emit = defineEmits<{
-  (e: 'editArticle', article: Article): void;
-  (e: 'updateArticle', article: Article): void;
-}>();
+  (e: 'editArticle', article: Article): void
+  (e: 'updateArticle', article: Article): void
+}>()
 
-// Create proper sensors using the Vue wrapper functions
-const pointerSensor = useSensor(PointerSensor, {
-  activationConstraint: {
-    distance: 8,
-  },
-});
-const sensors = useSensors(pointerSensor);
+function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
+  if (props.article.isLocked || !props.isEditingAllowed)
+    return
 
-const isFullPage = (article: Article): boolean => {
-  return article.visuals.some(v => 
-    v.width === 'full' && v.height === 'full' && v.page === article.startPage
-  );
-};
+  const container = document.getElementById(`article-${props.article.id}-page-${props.pageIndex}`)
+  if (!container)
+    return
 
-const handleDragEnd = (event: DragEndEvent) => {
-  const { active, delta } = event;
-  if (!active || props.article.isLocked || !props.isEditingAllowed) return;
+  const rect = container.getBoundingClientRect()
+  const currentPageValue = props.pageIndex + 1
+  const visual = props.article.visuals.find(v => v.id === visualId)
 
-  const container = document.getElementById(`article-${props.article.id}-page-${props.pageIndex}`);
-  if (!container) return;
+  if (!visual)
+    return
 
-  const rect = container.getBoundingClientRect();
-  const currentPageValue = props.pageIndex + 1;
-  const visual = props.article.visuals.find(v => v.id === active.id);
-  
-  if (!visual) return;
+  // Convert pixel deltas to percentage of container
+  const deltaXPercent = (deltaX / rect.width) * 100
+  const deltaYPercent = (deltaY / rect.height) * 100
 
-  const deltaX = (delta.x / rect.width) * 100;
-  const deltaY = (delta.y / rect.height) * 100;
   const newPosition = validateVisualPosition(
     {
       ...visual,
-      x: visual.x + deltaX,
-      y: visual.y + deltaY
+      x: visual.x + deltaXPercent,
+      y: visual.y + deltaYPercent,
     },
     rect.width,
-    rect.height
-  );
+    rect.height,
+  )
 
   if (currentPageValue >= props.article.startPage && currentPageValue <= props.article.startPage + props.article.pageCount - 1) {
     const updatedVisuals = props.article.visuals.map(v =>
-      v.id === active.id ? { 
-        ...v, 
-        ...newPosition,
-        page: currentPageValue
-      } : v
-    );
+      v.id === visualId
+        ? {
+            ...v,
+            ...newPosition,
+            page: currentPageValue,
+          }
+        : v,
+    )
 
-    const updatedPages = props.article.pages.map(page => {
-      const pageVisuals = updatedVisuals.filter(v => v.page === page.pageNumber);
+    const updatedPages = props.article.pages.map((page) => {
+      const pageVisuals = updatedVisuals.filter(v => v.page === page.pageNumber)
       return {
         ...page,
         visuals: pageVisuals,
-        availableSpace: calculatePageAvailableSpace(pageVisuals)
-      };
-    });
+        availableSpace: calculatePageAvailableSpace(pageVisuals),
+      }
+    })
 
-    emit('updateArticle', { 
-      ...props.article, 
+    emit('updateArticle', {
+      ...props.article,
       visuals: updatedVisuals,
-      pages: updatedPages
-    });
+      pages: updatedPages,
+    })
   }
-};
+}
 
-const currentPage = computed(() => props.pageIndex + 1);
-const page = computed(() => props.article.pages.find(p => p.pageNumber === currentPage.value));
+const currentPage = computed(() => props.pageIndex + 1)
+const page = computed(() => props.article.pages.find(p => p.pageNumber === currentPage.value))
 
-const isCurrentPageFull = computed(() => props.article.visuals.some(v => 
-  v.width === 'full' && v.height === 'full' && v.page === currentPage.value
-));
+const isCurrentPageFull = computed(() => props.article.visuals.some(v =>
+  v.width === 'full' && v.height === 'full' && v.page === currentPage.value,
+))
 
-const visualsOnCurrentPage = computed(() => 
-  props.article.visuals.filter(v => v.page === currentPage.value)
-);
+const visualsOnCurrentPage = computed(() =>
+  props.article.visuals.filter(v => v.page === currentPage.value),
+)
 </script>
 
 <template>
-  <DndContext
-    :sensors="sensors"
-    :modifiers="isFlipbook ? [] : [restrictToParentElement]"
-    @drag-end="handleDragEnd"
-  >
+  <div>
     <div
       :id="`article-${article.id}-page-${pageIndex}`"
       class="relative h-full rounded-sm overflow-hidden"
       :style="{
-        padding: `${margins.top}% ${margins.right}% ${margins.bottom}% ${margins.left}%`
+        padding: `${margins.top}% ${margins.right}% ${margins.bottom}% ${margins.left}%`,
       }"
     >
       <div class="h-full relative">
         <TextLines
           v-if="!isCurrentPageFull && page"
-          :wordCount="page.wordCount"
-          :availableSpace="page.availableSpace"
+          :word-count="page.wordCount"
+          :available-space="page.availableSpace"
           :columns="article.columns"
-          :lineHeight="article.lineHeight"
+          :line-height="article.lineHeight"
           :margins="margins"
           :visuals="page ? page.visuals : []"
         />
@@ -128,12 +113,13 @@ const visualsOnCurrentPage = computed(() =>
           v-for="visual in visualsOnCurrentPage"
           :key="visual.id"
           :visual="visual"
-          :isLocked="article.isLocked || isFlipbook"
-          :currentPage="currentPage"
+          :is-locked="article.isLocked || isFlipbook"
+          :current-page="currentPage"
           :article="article"
           @update-article="$emit('updateArticle', $event)"
+          @drag-end="handleDragEnd"
         />
       </div>
     </div>
-  </DndContext>
-</template> 
+  </div>
+</template>
