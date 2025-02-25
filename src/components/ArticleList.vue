@@ -83,23 +83,10 @@ function confirmDelete() {
 
   const id = articleToDelete.value.id
 
-  // Update local state immediately
-  sortedArticles.value = sortedArticles.value.filter(article => article.id !== id)
-
-  // Recalculate page numbers
-  let currentPage = 1
-  const updatedArticles = sortedArticles.value.map((article) => {
-    const updatedArticle = { ...article, startPage: currentPage }
-    currentPage += article.pageCount
-    return updatedArticle
-  })
-
-  sortedArticles.value = updatedArticles
-
-  // Emit event to parent
+  // Emit delete event directly to parent component
   emit('delete', id)
 
-  // Reset articleToDelete
+  // Reset articleToDelete to close the modal
   articleToDelete.value = null
 }
 
@@ -152,7 +139,10 @@ function handleDrop(e: DragEvent, targetArticle: Article) {
         return updatedArticle
       })
 
+      // Update the local sorted articles
       sortedArticles.value = updatedArticles
+
+      // Emit reorder event to update the magazine store
       emit('reorder', updatedArticles)
     }
   }
@@ -207,20 +197,18 @@ function handleDragEnd() {
       <div
         v-for="article in sortedArticles"
         :key="article.id"
-        class="p-4 rounded-lg shadow-xs border border-gray-200 bg-white space-y-2"
         draggable="true"
-        @dragstart="(e) => handleDragStart(e, article)"
-        @dragover.prevent="handleDragOver"
-        @drop="(e) => handleDrop(e, article)"
+        class="p-4 mb-4 bg-white rounded-lg shadow-sm border border-gray-200 cursor-move hover:shadow-md transition-shadow duration-200"
+        @dragstart="handleDragStart($event, article)"
+        @dragover.prevent="handleDragOver($event)"
+        @drop="handleDrop($event, article)"
         @dragend="handleDragEnd"
       >
-        <div class="flex items-center space-x-4">
-          <button
-            class="cursor-grab hover:text-blue-600"
-          >
-            <GripVertical class="w-5 h-5" />
-          </button>
-          <div class="flex-1 flex items-center space-x-2 min-w-0">
+        <div class="flex justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <div class="text-gray-400">
+              <GripVertical class="w-5 h-5" />
+            </div>
             <h3 class="font-medium">
               <a
                 v-if="article.url"

@@ -175,29 +175,6 @@ const lines = computed(() => {
   return result
 })
 
-// Calculate number of words per line based on column width
-const wordsPerLine = computed(() => {
-  const baseWordsPerLine = 12
-
-  // Adjust for column width
-  const columnMultiplier = {
-    1: 1, // Full width
-    2: 0.47, // Slightly less than half
-    3: 0.31, // Slightly less than a third
-  }[props.columns] || 1
-
-  return Math.floor(baseWordsPerLine * columnMultiplier)
-})
-
-// Estimate how many lines we need to display based on wordCount
-const estimatedLinesNeeded = computed(() => {
-  if (props.wordCount <= 0)
-    return 0
-
-  const totalWordsPerLine = wordsPerLine.value * props.columns
-  return Math.ceil(props.wordCount / totalWordsPerLine)
-})
-
 // Generate visual indicators for line length based on typical word count
 const lineWidths = computed(() => {
   // Create a map of line index to width percentage (0-100)
@@ -249,7 +226,7 @@ const lineWidths = computed(() => {
           width: `${lineWidths.get(index) || line.width}%`,
           left: `${line.x}%`,
           top: `${line.y}%`,
-          opacity: index < estimatedLinesNeeded ? '1' : '0.3',
+          opacity: 0.7 + (Math.random() * 0.3), // More visible with slight random variation
         }"
       />
     </div>

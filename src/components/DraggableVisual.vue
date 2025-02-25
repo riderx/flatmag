@@ -32,36 +32,66 @@ const isDragDisabled = computed(() => props.isLocked)
 
 // Element to be dragged
 const el = ref<HTMLElement | null>(null)
-const initialPosition = ref({ x: 0, y: 0 })
 
-// Use VueUse's draggable composable
-const { isDragging, style, x, y } = useDraggable(el, {
-  initialValue: { x: 0, y: 0 },
-  preventDefault: true,
-  stopPropagation: true,
-  containerElement: () => {
-    return document.getElementById(`article-${props.article.id}-page-${props.currentPage - 1}`)
-  },
-  onStart: () => {
-    // Store initial position when drag starts
-    initialPosition.value = { x: x.value, y: y.value }
-  },
-  onEnd: () => {
-    if (isDragDisabled.value)
-      return
+// Handle dragging manually without relying on transform style
+const isDragging = ref(false)
+let startX = 0
+let startY = 0
+let deltaX = 0
+let deltaY = 0
 
-    // Calculate delta between end and start positions
-    const deltaX = x.value - initialPosition.value.x
-    const deltaY = y.value - initialPosition.value.y
+function handleMouseDown(e: MouseEvent) {
+  if (isDragDisabled.value)
+    return
 
-    // Reset position to 0 for next drag (actual position is stored in article data)
-    x.value = 0
-    y.value = 0
+  isDragging.value = true
+  startX = e.clientX
+  startY = e.clientY
+  deltaX = 0
+  deltaY = 0
 
+  // Add event listeners to document for tracking mouse movement outside the element
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+
+  e.preventDefault()
+}
+
+function handleMouseMove(e: MouseEvent) {
+  if (!isDragging.value)
+    return
+
+  deltaX = e.clientX - startX
+  deltaY = e.clientY - startY
+
+  // Update visual style directly
+  if (el.value) {
+    el.value.style.transform = `translate(${deltaX}px, ${deltaY}px)`
+  }
+}
+
+function handleMouseUp() {
+  if (!isDragging.value)
+    return
+
+  isDragging.value = false
+
+  // Clean up event listeners
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+
+  // Reset transform
+  if (el.value) {
+    el.value.style.transform = 'none'
+  }
+
+  // Calculate container dimensions to convert to percent
+  const container = document.getElementById(`article-${props.article.id}-page-${props.currentPage - 1}`)
+  if (container && deltaX !== 0 && deltaY !== 0) {
     // Emit the change to parent with the deltas
     emit('dragEnd', props.visual.id, deltaX, deltaY)
-  },
-})
+  }
+}
 
 // Convert size ratio to percentage
 function sizeToPercent(size: SizeRatio): number {
@@ -133,9 +163,10 @@ const visualStyle = computed(() => {
 <template>
   <div
     ref="el"
-    :style="[visualStyle, style]"
+    :style="visualStyle"
     class="absolute rounded-sm overflow-hidden select-none touch-none"
     :class="{ 'ring-2 ring-blue-500': isDragging, 'pointer-events-none': isDragDisabled }"
+    @mousedown="handleMouseDown"
   >
     <img
       v-if="visual.type === 'image' && visual.url"

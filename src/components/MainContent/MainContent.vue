@@ -28,6 +28,7 @@ const emit = defineEmits<{
   (e: 'updateArticle', article: any): void
   (e: 'deleteArticle', id: string): void
   (e: 'flipbookClose'): void
+  (e: 'reorderArticles', articles: any[]): void
 }>()
 
 // Event handlers that emit events to parent
@@ -37,6 +38,7 @@ const handleEditArticle = (article: any) => emit('editArticle', article)
 const handleUpdateArticle = (article: any) => emit('updateArticle', article)
 const handleDeleteArticle = (id: string) => emit('deleteArticle', id)
 const handleFlipbookClose = () => emit('flipbookClose')
+const handleReorderArticles = (articles: any[]) => emit('reorderArticles', articles)
 </script>
 
 <template>
@@ -50,6 +52,7 @@ const handleFlipbookClose = () => emit('flipbookClose')
         :is-editing-allowed="isEditingAllowed"
         @delete="handleDeleteArticle"
         @edit="handleEditArticle"
+        @reorder="handleReorderArticles"
       />
     </template>
 

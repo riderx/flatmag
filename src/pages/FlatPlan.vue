@@ -317,6 +317,15 @@ function handleRemovePage() {
     }
   }
 }
+
+function handleReorderArticles(articles: any[]) {
+  if (typeof magazineStore.reorderArticles === 'function') {
+    magazineStore.reorderArticles(articles)
+  }
+  else {
+    console.log('reorderArticles not available')
+  }
+}
 </script>
 
 <template>
@@ -391,6 +400,7 @@ function handleRemovePage() {
         @edit-article="handleEditArticle"
         @update-article="handleUpdateArticle"
         @delete-article="handleDeleteArticle"
+        @reorder-articles="handleReorderArticles"
         @drag-end="handleDragEnd"
         @flipbook-close="showFlipbook = false"
       />
