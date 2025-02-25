@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useMagazineListStore } from '@src/store/magazineListStore'
-import { Calendar, FileText, Hash, Layout, Plus, Trash2 } from 'lucide-vue-next'
-import { onMounted, ref } from 'vue'
+import { Calendar, FileText, Hash, Layout, Plus, Share2, Trash2, UserMinus } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
 import { useMeta } from 'vue-meta'
 import { useRouter } from 'vue-router'
 import Modal from '../components/Modal.vue'
@@ -22,19 +22,33 @@ const magazineListStore = useMagazineListStore()
 const isLoading = ref(true)
 const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
+const showRemoveFromViewModal = ref(false)
 const magazineToDelete = ref<string | null>(null)
+const magazineToRemove = ref<string | null>(null)
 const newMagazine = ref({
   title: '',
   issue_number: '1',
   publication_date: new Date().toISOString().split('T')[0],
   page_ratio: '1/1.4142' as const,
 })
+const formErrors = ref({
+  title: false,
+})
+
+// Reset errors when opening modal
+function openCreateModal() {
+  formErrors.value.title = false
+  showCreateModal.value = true
+}
 
 onMounted(async () => {
   try {
     // For now, simulate loading from localStorage
     const storedMagazines = JSON.parse(localStorage.getItem('magazines') || '[]')
     magazineListStore.setMagazines(storedMagazines)
+
+    // Load removed shared magazines list from localStorage
+    await magazineListStore.fetchMagazines()
   }
   finally {
     isLoading.value = false
@@ -42,6 +56,14 @@ onMounted(async () => {
 })
 
 function createMagazine() {
+  // Validate form
+  formErrors.value.title = !newMagazine.value.title
+
+  // Don't proceed if there are errors
+  if (formErrors.value.title) {
+    return
+  }
+
   const newMagazineData = {
     id: Math.random().toString(36).substring(2, 9),
     title: newMagazine.value.title,
@@ -112,6 +134,27 @@ function deleteMagazine() {
   }
 }
 
+function confirmRemoveFromView(id: string) {
+  magazineToRemove.value = id
+  showRemoveFromViewModal.value = true
+}
+
+function removeFromView() {
+  if (magazineToRemove.value) {
+    // Remove shared magazine from view
+    magazineListStore.removeSharedMagazineFromView(magazineToRemove.value)
+
+    // Reset and close modal
+    magazineToRemove.value = null
+    showRemoveFromViewModal.value = false
+  }
+}
+
+function isSharedMagazine(magazine: any) {
+  // Check if this is a magazine shared with the current user
+  return magazine.shared_users && magazine.shared_users.some((user: any) => user.user_id === 'current-user')
+}
+
 function openMagazine(id: string) {
   router.push(`/flat-plan/${id}`)
 }
@@ -126,7 +169,7 @@ function openMagazine(id: string) {
         </h1>
         <button
           class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-xs hover:bg-blue-700"
-          @click="showCreateModal = true"
+          @click="openCreateModal"
         >
           <Plus class="w-5 h-5 mr-2" />
           New Magazine
@@ -150,7 +193,7 @@ function openMagazine(id: string) {
         </p>
         <button
           class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-xs hover:bg-blue-700"
-          @click="showCreateModal = true"
+          @click="openCreateModal"
         >
           <Plus class="w-5 h-5 mr-2" />
           Create Magazine
@@ -159,10 +202,10 @@ function openMagazine(id: string) {
 
       <div v-else class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <div
-          v-for="magazine in magazineListStore.magazines"
+          v-for="magazine in magazineListStore.filteredMagazines"
           :key="magazine.id"
           :class="`bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow ${
-            magazine.isShared ? 'border-l-4 border-blue-500' : ''
+            isSharedMagazine(magazine) ? 'border-l-4 border-blue-500' : ''
           }`"
         >
           <div class="p-6">
@@ -171,17 +214,34 @@ function openMagazine(id: string) {
                 <h3 class="text-lg font-medium text-gray-900">
                   {{ magazine.title }}
                 </h3>
-                <span v-if="magazine.isShared" class="text-xs font-medium text-blue-600">
+                <span v-if="isSharedMagazine(magazine)" class="text-xs font-medium text-blue-600 flex items-center">
+                  <Share2 class="w-3 h-3 mr-1" />
                   Shared with you
                 </span>
               </div>
-              <button
-                v-if="!magazine.isShared"
-                class="text-gray-400 hover:text-red-600"
-                @click="confirmDeleteMagazine(magazine.id)"
-              >
-                <Trash2 class="w-5 h-5" />
-              </button>
+
+              <!-- Show different actions based on ownership -->
+              <div class="flex">
+                <!-- If shared, show remove from view option -->
+                <button
+                  v-if="isSharedMagazine(magazine)"
+                  class="text-gray-400 hover:text-red-600"
+                  title="Remove from my view"
+                  @click.stop="confirmRemoveFromView(magazine.id)"
+                >
+                  <UserMinus class="w-5 h-5" />
+                </button>
+
+                <!-- If not shared, show delete option -->
+                <button
+                  v-else
+                  class="text-gray-400 hover:text-red-600"
+                  title="Delete magazine"
+                  @click.stop="confirmDeleteMagazine(magazine.id)"
+                >
+                  <Trash2 class="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <div class="mb-4 space-y-2">
               <div class="flex items-center text-sm text-gray-500">
@@ -216,15 +276,20 @@ function openMagazine(id: string) {
         </h2>
         <div>
           <label for="title" class="block mb-2 text-lg font-medium text-gray-700">
-            Title
+            Title <span class="text-red-500">*</span>
           </label>
           <input
             id="title"
             v-model="newMagazine.title"
             type="text"
-            class="block w-full h-10 mt-1 text-xl border-gray-300 rounded-md shadow-xs focus:border-blue-500 focus:ring-blue-500"
+            :class="`block w-full h-10 mt-1 text-xl rounded-md shadow-xs focus:ring-blue-500 focus:border-blue-500 ${
+              formErrors.title ? 'border-red-500 bg-red-50' : 'border-gray-300'
+            }`"
             placeholder="Enter magazine title"
           >
+          <p v-if="formErrors.title" class="mt-1 text-sm text-red-600">
+            Title is required
+          </p>
         </div>
 
         <div class="mt-6">
@@ -275,7 +340,6 @@ function openMagazine(id: string) {
             Cancel
           </button>
           <button
-            :disabled="!newMagazine.title || !newMagazine.issue_number"
             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-xs hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             @click="createMagazine"
           >
@@ -314,6 +378,36 @@ function openMagazine(id: string) {
             {{ magazineToDelete && magazineListStore.magazines.find(m => m.id === magazineToDelete)?.isShared
               ? "Remove"
               : "Delete" }}
+          </button>
+        </div>
+      </div>
+    </Modal>
+
+    <!-- Remove from view confirmation modal -->
+    <Modal :is-open="showRemoveFromViewModal" @close="showRemoveFromViewModal = false">
+      <div class="space-y-6">
+        <div>
+          <h3 class="text-lg font-medium text-blue-600">
+            Remove from My View
+          </h3>
+          <p class="mt-2 text-sm text-gray-500">
+            This will remove the magazine from your view, but it will still be accessible to other users it's shared with.
+            You can access it again if the owner reshares it with you.
+          </p>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            class="px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50"
+            @click="showRemoveFromViewModal = false"
+          >
+            Cancel
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            @click="removeFromView"
+          >
+            Remove
           </button>
         </div>
       </div>
