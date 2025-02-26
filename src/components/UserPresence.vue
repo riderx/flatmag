@@ -83,7 +83,7 @@ const hiddenUsersCount = computed(() => {
           :style="{ backgroundColor: user.animal.color, zIndex: users.length - index }"
           :title="`${user.animal.name}${user.id === currentUserId ? ' (You)' : ''}`"
         >
-          <span class="text-xs font-medium text-white">
+          <span class="text-lg font-medium text-white">
             {{ user.animal.name.charAt(0) }}
           </span>
           <span

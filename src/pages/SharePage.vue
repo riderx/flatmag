@@ -40,7 +40,7 @@ onMounted(async () => {
     magazineStore.setConnectionStatus(true)
 
     // Initialize collaboration
-    await joinSession(shareId)
+    await joinSession(shareId, permission === 'edit')
 
     // Sync the state
     magazineStore.syncState({

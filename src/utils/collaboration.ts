@@ -74,6 +74,7 @@ export async function joinSession(shareId: string, allowEdit: boolean) {
         .map((presence: any) => presence.user as User)
 
       // Update connected users
+      console.log('[Collaboration] Presence sync - updating users from:', connectedUsers, 'to:', users)
       connectedUsers = users
     })
     .on('presence', { event: 'join' }, ({ newPresences }: { key: string, newPresences: any[] }) => {
@@ -81,16 +82,21 @@ export async function joinSession(shareId: string, allowEdit: boolean) {
       const newUsers = newPresences.map((p: any) => p.user as User)
       const currentUserIds = connectedUsers.map(u => u.id)
 
+      console.log('[Collaboration] Presence join - new users:', newUsers)
+
       newUsers.forEach((user) => {
         if (!currentUserIds.includes(user.id)) {
           connectedUsers.push(user)
+          console.log('[Collaboration] Added user:', user, 'total users:', connectedUsers.length)
         }
       })
     })
     .on('presence', { event: 'leave' }, ({ leftPresences }: { key: string, leftPresences: any[] }) => {
       // Remove users who left
       const leftUserIds = leftPresences.map((p: any) => p.user.id)
+      console.log('[Collaboration] Presence leave - leaving users:', leftPresences.map(p => p.user))
       connectedUsers = connectedUsers.filter(user => !leftUserIds.includes(user.id))
+      console.log('[Collaboration] After remove, remaining users:', connectedUsers)
     })
     .subscribe(async (status: string) => {
       if (status === 'SUBSCRIBED') {
@@ -314,5 +320,8 @@ export const getSessionId = () => userId
 export const getSessionUser = () => ({ id: userId, animal: userAnimal })
 export const isCollaborating = () => !!currentShareId
 export const getConnectedPeers = () => connectedUsers.length - 1
-export const getConnectedUsers = () => connectedUsers
+export function getConnectedUsers() {
+  console.log('[Collaboration] getConnectedUsers called, returning:', connectedUsers)
+  return [...connectedUsers] // Return a copy to prevent mutations
+}
 export const isEditingAllowed = () => isEditAllowed
