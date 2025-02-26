@@ -265,9 +265,16 @@ function handleEditArticle(article: any) {
 }
 
 function handleDeleteArticle(id: string) {
+  // If we already have an article pending deletion, don't show another confirmation
+  if (articleToDelete.value) {
+    console.log('[FlatPlan] Delete already in progress, ignoring:', id)
+    return
+  }
+
   const articles = magazineStore.articles || defaultArticles.value
   const article = articles.find((a: any) => a.id === id)
   if (article) {
+    console.log('[FlatPlan] Setting article to delete:', article.title)
     articleToDelete.value = article
   }
 }

@@ -3,7 +3,6 @@ import type { Article } from '../types'
 import { Edit, FileText, GripVertical, Plus, Trash2 } from 'lucide-vue-next'
 import { ref, watch } from 'vue'
 import { useMagazineStore } from '../store/magazineStore'
-import DeleteConfirmation from './DeleteConfirmation.vue'
 
 const props = defineProps<{
   articles: Article[]
@@ -19,7 +18,6 @@ const emit = defineEmits<{
 
 const magazineStore = useMagazineStore()
 const sortedArticles = ref<Article[]>([...props.articles])
-const articleToDelete = ref<{ id: string, title: string } | null>(null)
 
 // Update sortedArticles when props.articles changes (shallow watch)
 watch(() => props.articles, (newArticles) => {
@@ -69,30 +67,9 @@ function handleEditArticle(article: Article) {
 
 // Handle delete article
 function handleDeleteArticle(article: Article) {
-  // Show confirmation modal first
-  articleToDelete.value = {
-    id: article.id,
-    title: article.title,
-  }
-}
-
-// Confirm delete action
-function confirmDelete() {
-  if (!articleToDelete.value)
-    return
-
-  const id = articleToDelete.value.id
-
-  // Emit delete event directly to parent component
-  emit('delete', id)
-
-  // Reset articleToDelete to close the modal
-  articleToDelete.value = null
-}
-
-// Cancel delete action
-function cancelDelete() {
-  articleToDelete.value = null
+  // Directly emit the delete event to the parent component
+  // The parent will handle showing the confirmation dialog
+  emit('delete', article.id)
 }
 
 // Handle drag start
@@ -276,14 +253,6 @@ function handleDragEnd() {
         </div>
       </div>
     </div>
-
-    <!-- Delete confirmation modal -->
-    <DeleteConfirmation
-      :title="articleToDelete?.title || ''"
-      :is-open="!!articleToDelete"
-      @confirm="confirmDelete"
-      @cancel="cancelDelete"
-    />
   </div>
 </template>
 
