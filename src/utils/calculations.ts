@@ -59,27 +59,39 @@ export function calculatePageAvailableSpace(visuals: Visual[], margins: { top: n
   // Sort visuals by vertical position
   const sortedVisuals = [...visuals].sort((a, b) => a.y - b.y)
 
-  // Calculate available space considering vertical stacking and margins
+  // Calculate total page height available after margins
   const totalHeight = 100 - margins.top - margins.bottom
-  let occupiedSpace = 0
-  let currentY = margins.top
+
+  // Calculate the space occupied by visuals, accounting for overlaps
+  // Initialize array with zeros to track horizontal space occupied at each vertical position
+  const verticalSlices: number[] = Array.from({ length: 100 }, () => 0)
 
   for (const visual of sortedVisuals) {
-    const { pushDownPercent } = calculateVisualImpact(visual)
+    const width = ratioToPercent(visual.width || '1/1')
+    const height = ratioToPercent(visual.height || '1/1')
 
-    // Calculate overlap with previous visuals
-    if (visual.y < currentY) {
-      occupiedSpace += Math.min(pushDownPercent, currentY - visual.y)
-    }
-    else {
-      occupiedSpace += pushDownPercent
-    }
+    // Calculate the vertical range this visual occupies
+    const startY = Math.max(Math.floor(visual.y), 0)
+    const endY = Math.min(Math.ceil(visual.y + height), 100)
 
-    // Update current Y position
-    currentY = Math.max(currentY, visual.y + pushDownPercent)
+    // For each vertical position, track the percentage of horizontal space occupied
+    for (let y = startY; y < endY; y++) {
+      // Only count positions within the margins
+      if (y >= margins.top && y < (100 - margins.bottom)) {
+        // Add proportional width occupied at this vertical position
+        verticalSlices[y] = Math.min(verticalSlices[y] + (width / 100), 1)
+      }
+    }
   }
 
-  return Math.max(0, totalHeight - occupiedSpace)
+  // Calculate available space by summing the remaining available space at each vertical position
+  let availableSpace = 0
+  for (let y = margins.top; y < (100 - margins.bottom); y++) {
+    availableSpace += (1 - verticalSlices[y])
+  }
+
+  // Return available space as a percentage of total available height
+  return Math.max(0, (availableSpace / totalHeight) * 100)
 }
 
 export function calculateAvailableLines(lineHeight: LineHeight, availableSpace: number): number {

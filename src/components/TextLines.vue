@@ -155,7 +155,51 @@ const lines = computed(() => {
 
   // Calculate total number of lines based on available space and line height
   const lineSpacing = lineHeightPercent.value * 1.2 // Add 20% for spacing between lines
-  const totalLines = Math.floor((100 * props.availableSpace / 100) / lineSpacing) // Adjust for available space
+
+  // Determine the maximum vertical position in the document
+  let maxVisualY = 0
+  props.visuals.forEach((visual) => {
+    const { y, height } = getVisualDimensions(visual)
+    const visualBottom = y + height
+    maxVisualY = Math.max(maxVisualY, visualBottom)
+  })
+
+  // Calculate how many lines needed to fill 100% of the page height
+  const totalPageLines = Math.floor(100 / lineSpacing)
+
+  // First calculate lines needed for full pages
+  const fullPageLines = Math.max(
+    // Use the larger value to ensure we fill normal pages
+    Math.floor(props.availableSpace / lineSpacing),
+    totalPageLines,
+    props.columns * 3,
+  )
+
+  // Calculate lines needed for partial content (last page)
+  // This is only applied when wordCount is significantly less than needed for a full page
+  const avgWordsPerLine = Math.max(4, 12 / props.columns)
+
+  // Calculate how many words would fit on a full page
+  // Note: We don't multiply by columns here since text flows across columns
+  const wordsPerFullPage = avgWordsPerLine * totalPageLines * props.columns
+
+  // Only use proportional filling when word count is less than 80% of a full page
+  // This prevents normal full pages from being cut off
+  const isPartialPage = props.wordCount < (wordsPerFullPage * 0.80)
+
+  // Calculate what proportion of a full page our word count represents
+  // Add 10% to ensure we don't cut off too aggressively
+  const pageFilledProportion = Math.min((props.wordCount / wordsPerFullPage) + 0.1, 1)
+
+  // Calculate lines needed proportionally, with a minimum threshold
+  const proportionalLines = Math.max(
+    Math.ceil(totalPageLines * pageFilledProportion),
+    // Ensure there are always at least a few lines (proportionally)
+    Math.ceil(totalPageLines * 0.2),
+  )
+
+  // Use full page lines by default, only use proportional for genuinely partial pages
+  const totalLines = isPartialPage ? proportionalLines : fullPageLines
 
   // Generate text lines for each column
   for (let lineIndex = 0; lineIndex < totalLines; lineIndex++) {

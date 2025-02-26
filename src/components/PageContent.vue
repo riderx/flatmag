@@ -121,11 +121,14 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
     const updatedPages = props.article.pages?.map?.((page) => {
       const pageVisuals = updatedVisuals.filter(v => v.page === page.pageNumber)
 
+      // Calculate available space more accurately to ensure text fills the available area
+      const availableSpace = calculatePageAvailableSpace(pageVisuals, effectiveMargins.value)
+
       // Create a safe deep copy of the page using JSON parse/stringify
       return {
         ...JSON.parse(JSON.stringify(page)),
         visuals: pageVisuals,
-        availableSpace: calculatePageAvailableSpace(pageVisuals, effectiveMargins.value),
+        availableSpace,
         _pageUpdated: Date.now(), // Add timestamp to force page update detection
       }
     }) || []
@@ -210,6 +213,21 @@ const visualPositionTracker = computed(() => {
   return props.article.visuals.map(v => `${v.id}:${v.x}:${v.y}:${v.page}`).join('|')
 })
 
+// Calculate if this is the last page of the article
+const isLastArticlePage = computed(() => {
+  if (!props.article || !props.article.pageCount)
+    return false
+
+  const articleStartPage = props.article.startPage || 1
+
+  // Calculate article-relative page (1-based)
+  const currentAbsolutePage = props.pageIndex + 1
+  const articleRelativePage = currentAbsolutePage - articleStartPage + 1
+
+  // Check if this is the last page
+  return articleRelativePage === props.article.pageCount
+})
+
 // Calculate word count for this specific page
 const pageWordCount = computed(() => {
   if (!page.value)
@@ -222,6 +240,17 @@ const pageWordCount = computed(() => {
 
   // Otherwise, estimate based on total word count and page count
   if (props.article?.wordCount && props.article?.pageCount) {
+    // If this is the last page, calculate the remaining words instead of average
+    if (isLastArticlePage.value) {
+      const averageWordsPerPage = Math.floor(props.article.wordCount / props.article.pageCount)
+      const previousPagesWords = averageWordsPerPage * (props.article.pageCount - 1)
+      const remainingWords = props.article.wordCount - previousPagesWords
+
+      // Return actual remaining words
+      return Math.max(0, remainingWords)
+    }
+
+    // For non-last pages, use average word count
     return Math.floor(props.article.wordCount / props.article.pageCount)
   }
 
@@ -250,19 +279,51 @@ const displayWordCount = computed(() => {
 
 // Calculate available space, defaulting to 100 if not specified
 const availablePageSpace = computed(() => {
+  // If we already have a calculated value from the store, use it
   if (page.value && page.value.availableSpace !== undefined)
-    return page.value.availableSpace
+    return Math.max(page.value.availableSpace, 40) // Ensure at least 40% available to prevent empty pages
 
   // If no space calculation exists but we have visuals, we need to calculate
   if (visualsOnCurrentPage.value.length > 0) {
-    return 100 - visualsOnCurrentPage.value.reduce((total, visual) => {
-      const width = visual.width === 'full' ? 100 : Number(visual.width.split('/')[0]) / Number(visual.width.split('/')[1]) * 100
-      const height = visual.height === 'full' ? 100 : Number(visual.height.split('/')[0]) / Number(visual.height.split('/')[1]) * 100
-      return total + (width * height / 100) // Approximate space taken
-    }, 0)
+    // Calculate using the proper utility
+    return Math.max(
+      calculatePageAvailableSpace(visualsOnCurrentPage.value, effectiveMargins.value),
+      40, // Ensure at least 40% available to prevent empty pages
+    )
   }
 
   return 100 // Default to full space available
+})
+
+// Check if this page is truly a partial page (significantly less content than a full page)
+const isPartialPage = computed(() => {
+  if (!isLastArticlePage.value || !props.article?.wordCount)
+    return false
+
+  // Check if the remaining words are significantly less than what normally fills a page
+  const avgWordsPerPage = Math.ceil(props.article.wordCount / props.article.pageCount)
+
+  // If we're at least 80% full, consider it a full page for layout purposes
+  return displayWordCount.value < (avgWordsPerPage * 0.8)
+})
+
+// Ensure we have enough text to display, based on available space
+const ensureWordCount = computed(() => {
+  // If we have a specified word count, use it
+  if (displayWordCount.value > 0) {
+    // If it's a partial last page, use the exact word count without scaling
+    // This will allow pages with just a few words to show proportional content
+    if (isPartialPage.value) {
+      return displayWordCount.value
+    }
+
+    // Otherwise scale the word count to fill the page
+    const adjustmentFactor = 100 / Math.min(availablePageSpace.value, 100)
+    return Math.ceil(displayWordCount.value * adjustmentFactor)
+  }
+
+  // Default fallback
+  return props.article ? 100 : 0
 })
 </script>
 
@@ -282,7 +343,7 @@ const availablePageSpace = computed(() => {
         <!-- Text lines with flow around images -->
         <TextLines
           v-if="!isCurrentPageFull && hasArticleContent && displayWordCount > 0"
-          :word-count="displayWordCount"
+          :word-count="ensureWordCount"
           :available-space="availablePageSpace"
           :columns="article?.columns || 1"
           :line-height="article?.lineHeight || '1/50'"
