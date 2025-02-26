@@ -612,6 +612,24 @@ export const useMagazineStore = defineStore('magazine', () => {
         const current = { articles: [...articles.value], description: 'Current state' }
         history.future.push(current)
         articles.value = [...previous.articles]
+
+        // Broadcast the changes to other users
+        if (isShared.value) {
+          console.log('[MagazineStore] Broadcasting undo operation')
+
+          // Add timestamp to all articles to ensure they're recognized as updated
+          const articlesWithTimestamp = articles.value.map(article => ({
+            ...article,
+            _lastUpdated: Date.now(),
+            _broadcastTimestamp: Date.now(),
+            _undoOperation: true,
+          }))
+
+          // Broadcast the updates
+          import('../utils/collaboration').then(({ broadcastArticleReorder }) => {
+            broadcastArticleReorder(articlesWithTimestamp)
+          })
+        }
       }
     }
   }
@@ -623,6 +641,24 @@ export const useMagazineStore = defineStore('magazine', () => {
         const current = { articles: [...articles.value], description: 'Current state' }
         history.past.push(current)
         articles.value = [...next.articles]
+
+        // Broadcast the changes to other users
+        if (isShared.value) {
+          console.log('[MagazineStore] Broadcasting redo operation')
+
+          // Add timestamp to all articles to ensure they're recognized as updated
+          const articlesWithTimestamp = articles.value.map(article => ({
+            ...article,
+            _lastUpdated: Date.now(),
+            _broadcastTimestamp: Date.now(),
+            _redoOperation: true,
+          }))
+
+          // Broadcast the updates
+          import('../utils/collaboration').then(({ broadcastArticleReorder }) => {
+            broadcastArticleReorder(articlesWithTimestamp)
+          })
+        }
       }
     }
   }
