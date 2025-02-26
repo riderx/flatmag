@@ -23,7 +23,7 @@ onMounted(() => {
     userUpdateInterval = window.setInterval(() => {
       connectedUsers.value = getConnectedUsers()
       isCollaborating.value = getIsCollaborating()
-    }, 2000)
+    }, 1000) // Update more frequently for responsive UI
   }
 
   return () => {
@@ -44,7 +44,7 @@ watch(() => isSharing, (newVal) => {
       userUpdateInterval = window.setInterval(() => {
         connectedUsers.value = getConnectedUsers()
         isCollaborating.value = getIsCollaborating()
-      }, 2000)
+      }, 1000) // Update more frequently
     }
   }
   else {

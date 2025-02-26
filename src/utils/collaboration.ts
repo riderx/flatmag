@@ -1,6 +1,6 @@
 import { getMagazineStore } from '../store/mainStore'
 import { getRandomAnimal } from './animals'
-import { broadcastToChannel, subscribeToChannel } from './supabase'
+import { supabase } from './supabase'
 
 export interface User {
   id: string
@@ -21,6 +21,7 @@ let connectedUsers: User[] = [{ id: userId, animal: userAnimal }]
 let currentShareId: string | null = null
 let unsubscribeFunction: (() => void) | null = null
 let isEditAllowed = true
+let presenceChannel: any = null
 
 export function initializeCollaboration() {
   if (!userId) {
@@ -42,41 +43,90 @@ export async function joinSession(shareId: string, allowEdit: boolean) {
     unsubscribeFunction = null
   }
 
+  // Clean up existing presence channel
+  if (presenceChannel) {
+    presenceChannel.untrack()
+    presenceChannel.unsubscribe()
+    presenceChannel = null
+  }
+
   currentShareId = shareId
   isEditAllowed = allowEdit
   initializeCollaboration()
 
-  // Subscribe to channel
-  unsubscribeFunction = subscribeToChannel(shareId, (payload) => {
-    handleMessage(payload)
-  })
+  // Create presence channel for user tracking
+  presenceChannel = supabase.channel(`presence-${shareId}`)
 
-  // Broadcast join event
-  broadcastToChannel(shareId, 'user:join', {
-    user: {
-      id: userId,
-      animal: userAnimal,
-    },
-    timestamp: Date.now(),
-  })
+  presenceChannel
+    .on('presence', { event: 'sync' }, () => {
+      const state = presenceChannel.presenceState()
+      // Convert presence state to user array
+      const users = Object.values(state)
+        .flat()
+        .map((presence: any) => presence.user as User)
 
-  return () => {
-    if (unsubscribeFunction) {
-      unsubscribeFunction()
-      unsubscribeFunction = null
+      // Update connected users
+      connectedUsers = users
+    })
+    .on('presence', { event: 'join' }, ({ newPresences }: { key: string, newPresences: any[] }) => {
+      // Add new users to connected users
+      const newUsers = newPresences.map((p: any) => p.user as User)
+      const currentUserIds = connectedUsers.map(u => u.id)
+
+      newUsers.forEach((user) => {
+        if (!currentUserIds.includes(user.id)) {
+          connectedUsers.push(user)
+        }
+      })
+    })
+    .on('presence', { event: 'leave' }, ({ leftPresences }: { key: string, leftPresences: any[] }) => {
+      // Remove users who left
+      const leftUserIds = leftPresences.map((p: any) => p.user.id)
+      connectedUsers = connectedUsers.filter(user => !leftUserIds.includes(user.id))
+    })
+    .subscribe(async (status: string) => {
+      if (status === 'SUBSCRIBED') {
+        // Track our presence
+        await presenceChannel.track({
+          user: {
+            id: userId,
+            animal: userAnimal,
+          },
+        })
+      }
+    })
+
+  // Subscribe to channel for messages (article updates, etc.)
+  const messageChannel = supabase.channel(`magazine-${shareId}`)
+
+  messageChannel
+    .on('broadcast', { event: '*' }, ({ event, payload }) => {
+      handleMessage({ event, data: payload })
+    })
+    .subscribe()
+
+  unsubscribeFunction = () => {
+    messageChannel.unsubscribe()
+
+    if (presenceChannel) {
+      presenceChannel.untrack()
+      presenceChannel.unsubscribe()
     }
   }
+
+  return unsubscribeFunction
 }
 
 export async function leaveSession() {
   if (currentShareId && unsubscribeFunction) {
-    // Broadcast leave event
-    broadcastToChannel(currentShareId, 'user:leave', {
-      userId,
-      timestamp: Date.now(),
-    })
+    // Untrack presence
+    if (presenceChannel) {
+      presenceChannel.untrack()
+      presenceChannel.unsubscribe()
+      presenceChannel = null
+    }
 
-    // Cleanup
+    // Cleanup message channel
     unsubscribeFunction()
     unsubscribeFunction = null
     currentShareId = null
@@ -88,12 +138,6 @@ function handleMessage(payload: MessagePayload) {
   const { event, data } = payload
 
   switch (event) {
-    case 'user:join':
-      handleUserJoin(data as { user: User })
-      break
-    case 'user:leave':
-      handleUserLeave(data as { userId: string })
-      break
     case 'state:update':
       handleStateUpdate(data as { allowEdit: boolean })
       break
@@ -109,18 +153,6 @@ function handleMessage(payload: MessagePayload) {
     default:
       console.log('Unknown event:', event)
   }
-}
-
-function handleUserJoin(data: { user: User }) {
-  const { user } = data
-  if (!connectedUsers.some(u => u.id === user.id)) {
-    connectedUsers.push(user)
-  }
-}
-
-function handleUserLeave(data: { userId: string }) {
-  const { userId: leavingUserId } = data
-  connectedUsers = connectedUsers.filter(user => user.id !== leavingUserId)
 }
 
 // This function will be called from a component that uses the store
@@ -157,7 +189,7 @@ function handleStateUpdate(data: { allowEdit: boolean }) {
   }
 }
 
-// New handlers for article operations
+// Handlers for article operations
 function handleArticleReorder(data: { articles: any[], user: User }) {
   if (!isEditAllowed)
     return
@@ -194,10 +226,15 @@ export function broadcastArticleReorder(articles: any[]) {
   if (!currentShareId)
     return
 
-  broadcastToChannel(currentShareId, 'article:reorder', {
-    articles,
-    user: { id: userId, animal: userAnimal },
-    timestamp: Date.now(),
+  const channel = supabase.channel(`magazine-${currentShareId}`)
+  channel.send({
+    type: 'broadcast',
+    event: 'article:reorder',
+    payload: {
+      articles,
+      user: { id: userId, animal: userAnimal },
+      timestamp: Date.now(),
+    },
   })
 }
 
@@ -205,10 +242,15 @@ export function broadcastArticleUpdate(article: any) {
   if (!currentShareId)
     return
 
-  broadcastToChannel(currentShareId, 'article:update', {
-    article,
-    user: { id: userId, animal: userAnimal },
-    timestamp: Date.now(),
+  const channel = supabase.channel(`magazine-${currentShareId}`)
+  channel.send({
+    type: 'broadcast',
+    event: 'article:update',
+    payload: {
+      article,
+      user: { id: userId, animal: userAnimal },
+      timestamp: Date.now(),
+    },
   })
 }
 
@@ -216,10 +258,15 @@ export function broadcastArticleDelete(articleId: string) {
   if (!currentShareId)
     return
 
-  broadcastToChannel(currentShareId, 'article:delete', {
-    articleId,
-    user: { id: userId, animal: userAnimal },
-    timestamp: Date.now(),
+  const channel = supabase.channel(`magazine-${currentShareId}`)
+  channel.send({
+    type: 'broadcast',
+    event: 'article:delete',
+    payload: {
+      articleId,
+      user: { id: userId, animal: userAnimal },
+      timestamp: Date.now(),
+    },
   })
 }
 

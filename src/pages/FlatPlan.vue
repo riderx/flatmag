@@ -14,7 +14,7 @@ import MetaTags from '../components/MetaTags.vue'
 import Modal from '../components/Modal.vue'
 import Toolbar from '../components/Toolbar/Toolbar.vue'
 import { useMagazineStore } from '../store/magazineStore'
-import { getConnectedPeers, initializeCollaboration, isCollaborating, joinSession } from '../utils/collaboration'
+import { getConnectedPeers, getConnectedUsers, initializeCollaboration, isCollaborating, joinSession } from '../utils/collaboration'
 
 const route = useRoute()
 const router = useRouter()
@@ -53,6 +53,9 @@ onMounted(() => {
       isCollaborating: isCollaborating(),
       peersCount: getConnectedPeers(),
     }
+
+    // Debug user presence
+    console.log('Connected users:', getConnectedUsers())
   }, 1000)
 
   return () => clearInterval(interval)
@@ -86,7 +89,7 @@ onMounted(async () => {
       if (typeof magazineStore.setConnectionStatus === 'function') {
         magazineStore.setConnectionStatus(true)
       }
-      await joinSession(sessionId)
+      await joinSession(sessionId, mode === 'edit')
       if (typeof magazineStore.setConnectionStatus === 'function') {
         magazineStore.setConnectionStatus(false)
       }
@@ -120,6 +123,24 @@ onMounted(async () => {
       magazineStore.syncState({
         magazine: magazineState,
       })
+    }
+
+    // When loading magazine, check if it's shared and initialize collaboration
+    if (magazine.state && magazine.state.isShared) {
+      console.log('Magazine is shared, initializing collaboration...')
+
+      // Set share status in store
+      magazineStore.setShareStatus({
+        isShared: true,
+        allowEdit: magazine.state.allowEdit || true,
+        shareId: magazine.state.shareId,
+      })
+
+      // Join the collaboration session
+      if (magazine.state.shareId) {
+        console.log('Joining collaboration session:', magazine.state.shareId)
+        joinSession(magazine.state.shareId, magazine.state.allowEdit || false)
+      }
     }
 
     isLoading.value = false
@@ -372,9 +393,9 @@ function handleReorderArticles(articles: any[]) {
             Magazine Layout
           </h2>
           <CollaborationStatus
-            :is-collaborating="collaborationStatus.isCollaborating"
-            :peers-count="collaborationStatus.peersCount"
+            :is-sharing="collaborationStatus.isCollaborating"
             :is-editing-allowed="magazineStore.allowEdit"
+            :share-id="magazineStore.shareId"
           />
         </div>
         <Toolbar

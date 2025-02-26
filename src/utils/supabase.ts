@@ -9,9 +9,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Store active channels
-const activeChannels = new Map<string, any>()
-
 export async function createShare(state: string) {
   const { data, error } = await supabase
     .from('shares')
@@ -34,36 +31,4 @@ export async function getShare(id: string) {
   if (error)
     throw error
   return data.state
-}
-
-export function subscribeToChannel(shareId: string, onMessage: (payload: any) => void) {
-  // Get or create channel for this share
-  let channel = activeChannels.get(shareId)
-  if (!channel) {
-    channel = supabase.channel(`magazine-${shareId}`)
-    activeChannels.set(shareId, channel)
-  }
-
-  // Subscribe to changes
-  channel
-    .on('broadcast', { event: '*' }, ({ event, payload }) => {
-      onMessage({ event, data: payload })
-    })
-    .subscribe()
-
-  return () => {
-    channel.unsubscribe()
-    activeChannels.delete(shareId)
-  }
-}
-
-export function broadcastToChannel(shareId: string, event: string, payload: any) {
-  const channel = activeChannels.get(shareId)
-  if (channel) {
-    channel.send({
-      type: 'broadcast',
-      event,
-      payload,
-    })
-  }
 }
