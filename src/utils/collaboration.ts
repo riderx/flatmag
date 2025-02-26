@@ -62,12 +62,15 @@ export async function joinSession(shareId: string, allowEdit: boolean) {
   isEditAllowed = allowEdit
   initializeCollaboration()
 
+  console.log('[Collaboration] Creating presence channel for:', shareId, 'with user:', { id: userId, animal: userAnimal })
+
   // Create presence channel for user tracking
   presenceChannel = supabase.channel(`presence-${shareId}`)
 
   presenceChannel
     .on('presence', { event: 'sync' }, () => {
       const state = presenceChannel.presenceState()
+      console.log('[Collaboration] Presence SYNC event - raw state:', state)
       // Convert presence state to user array
       const users = Object.values(state)
         .flat()
@@ -79,6 +82,7 @@ export async function joinSession(shareId: string, allowEdit: boolean) {
     })
     .on('presence', { event: 'join' }, ({ newPresences }: { key: string, newPresences: any[] }) => {
       // Add new users to connected users
+      console.log('[Collaboration] Presence JOIN event - raw newPresences:', newPresences)
       const newUsers = newPresences.map((p: any) => p.user as User)
       const currentUserIds = connectedUsers.map(u => u.id)
 
@@ -93,20 +97,24 @@ export async function joinSession(shareId: string, allowEdit: boolean) {
     })
     .on('presence', { event: 'leave' }, ({ leftPresences }: { key: string, leftPresences: any[] }) => {
       // Remove users who left
+      console.log('[Collaboration] Presence LEAVE event - raw leftPresences:', leftPresences)
       const leftUserIds = leftPresences.map((p: any) => p.user.id)
       console.log('[Collaboration] Presence leave - leaving users:', leftPresences.map(p => p.user))
       connectedUsers = connectedUsers.filter(user => !leftUserIds.includes(user.id))
       console.log('[Collaboration] After remove, remaining users:', connectedUsers)
     })
     .subscribe(async (status: string) => {
+      console.log('[Collaboration] Presence channel subscription status:', status)
       if (status === 'SUBSCRIBED') {
         // Track our presence
+        console.log('[Collaboration] Tracking presence for user:', { id: userId, animal: userAnimal })
         await presenceChannel.track({
           user: {
             id: userId,
             animal: userAnimal,
           },
         })
+        console.log('[Collaboration] Presence tracking initiated')
       }
     })
 
@@ -322,6 +330,56 @@ export const isCollaborating = () => !!currentShareId
 export const getConnectedPeers = () => connectedUsers.length - 1
 export function getConnectedUsers() {
   console.log('[Collaboration] getConnectedUsers called, returning:', connectedUsers)
+
+  // If the connectedUsers array is empty, add at least the current user
+  if (connectedUsers.length === 0) {
+    console.log('[Collaboration] Connected users array is empty, adding current user')
+    connectedUsers = [{
+      id: userId,
+      animal: userAnimal,
+    }]
+  }
+
+  // If Supabase presence channel exists, check its state
+  if (presenceChannel && currentShareId) {
+    try {
+      const presenceState = presenceChannel.presenceState()
+      console.log('[Collaboration] Current presence state from channel:', presenceState)
+
+      // If there is presence data in the channel but not in our array, sync them
+      if (Object.keys(presenceState).length > 0 && connectedUsers.length < Object.keys(presenceState).length) {
+        console.log('[Collaboration] Syncing from presence state because connected users are out of sync')
+        const usersFromPresence = Object.values(presenceState)
+          .flat()
+          .map((presence: any) => presence.user as User)
+
+        if (usersFromPresence.length > 0) {
+          connectedUsers = usersFromPresence
+          console.log('[Collaboration] Updated connected users from presence state:', connectedUsers)
+        }
+      }
+
+      // Try to retrack presence if we're connected but not in the presence state
+      const ourPresenceKeyExists = Object.keys(presenceState).some((key) => {
+        const users = presenceState[key]
+        return users.some((p: any) => p.user && p.user.id === userId)
+      })
+
+      if (!ourPresenceKeyExists && currentShareId) {
+        console.log('[Collaboration] Our presence is not in the state, re-tracking...')
+        presenceChannel.track({
+          user: {
+            id: userId,
+            animal: userAnimal,
+          },
+        }).then(() => console.log('[Collaboration] Re-tracked presence'))
+      }
+    }
+    catch (error) {
+      console.error('[Collaboration] Error checking presence state:', error)
+    }
+  }
+
   return [...connectedUsers] // Return a copy to prevent mutations
 }
 export const isEditingAllowed = () => isEditAllowed

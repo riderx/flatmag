@@ -20,14 +20,25 @@ let userUpdateInterval: number | null = null
 onMounted(() => {
   if (isSharing && shareId) {
     // Initial fetch of connected users
-    connectedUsers.value = getConnectedUsers()
-    console.log('[CollaborationStatus] Initial users:', connectedUsers.value)
+    const initialUsers = getConnectedUsers()
+    console.log('[CollaborationStatus] Initial fetch of connected users:', initialUsers)
+    connectedUsers.value = initialUsers
+    console.log('[CollaborationStatus] Initial users after setting:', connectedUsers.value)
 
     // Set up periodic updates of connected users
     userUpdateInterval = window.setInterval(() => {
       const users = getConnectedUsers()
       console.log('[CollaborationStatus] Interval update - raw users from getConnectedUsers():', users)
-      connectedUsers.value = users
+
+      // Compare with current users
+      const currentIds = connectedUsers.value.map(u => u.id).sort().join(',')
+      const newIds = users.map(u => u.id).sort().join(',')
+
+      if (currentIds !== newIds) {
+        console.log('[CollaborationStatus] Users changed from previous update, updating UI')
+        connectedUsers.value = users
+      }
+
       isCollaborating.value = getIsCollaborating()
     }, 1000) // Update more frequently for responsive UI
   }

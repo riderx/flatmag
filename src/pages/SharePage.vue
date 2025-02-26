@@ -3,8 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import WaitingRoom from '../components/WaitingRoom.vue'
 import { useMagazineStore } from '../store/magazineStore'
-import { joinSession } from '../utils/collaboration'
-import { getSharedState, loadSharedState } from '../utils/share'
+import { getSharedState, joinSharedSession, loadSharedState } from '../utils/share'
 
 const router = useRouter()
 const magazineStore = useMagazineStore()
@@ -16,7 +15,8 @@ const error = ref<string | undefined>(undefined)
 // Extract shareId from query parameters
 const urlParams = new URLSearchParams(window.location.search)
 const shareId = urlParams.get('id')
-const { permission } = loadSharedState()
+const editParam = urlParams.get('edit')
+const permission = editParam === '1' ? 'edit' : 'read'
 
 onMounted(async () => {
   if (!shareId) {
@@ -39,8 +39,8 @@ onMounted(async () => {
     status.value = 'syncing'
     magazineStore.setConnectionStatus(true)
 
-    // Initialize collaboration
-    await joinSession(shareId, permission === 'edit')
+    // Initialize collaboration and save shareData to localStorage
+    await joinSharedSession(shareId, permission === 'edit')
 
     // Sync the state
     magazineStore.syncState({

@@ -1,7 +1,8 @@
 import type { MagazineState } from '../store/magazineStore'
+import type { Article } from '../types'
 import LZString from 'lz-string'
 import { joinSession } from './collaboration'
-import { broadcastToChannel, createShare, getShare, subscribeToChannel } from './supabase'
+import { createShare, getShare } from './supabase'
 
 export type SharePermission = 'read' | 'edit'
 
@@ -62,6 +63,12 @@ export async function initializeShare(allowEdit: boolean, magazineStore: { $stat
     // Get current state
     const stateToShare = {
       magazine: magazineStore.$state,
+      settings: {
+        title: magazineStore.$state.title,
+        issueNumber: magazineStore.$state.issueNumber,
+        publicationDate: magazineStore.$state.publicationDate,
+        pageRatio: magazineStore.$state.pageRatio,
+      },
     }
 
     // Create share record in Supabase
