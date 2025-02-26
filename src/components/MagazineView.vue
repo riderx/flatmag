@@ -338,7 +338,11 @@ function updateMagazineSetting(setting: string, value: any) {
           :article="getArticlesForPage(pageIndex)[0]"
           :margins="getPageMargins(pageIndex + 1)"
           :is-editing-allowed="isEditingAllowed"
-          :style="zoomLevel === '1' ? { width: `${pageDimensions.width}px`, maxWidth: '100%' } : {}"
+          :style="{
+            width: `${pageDimensions.width}px`,
+            maxWidth: '100%',
+          }"
+          class="mx-auto"
           @margins-change="(newMargins) => updatePageMargins(pageIndex + 1, newMargins)"
           @edit-article="$emit('editArticle', $event)"
           @update-article="handleArticleUpdate"
