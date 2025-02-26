@@ -55,7 +55,7 @@ onMounted(() => {
     }
 
     // Debug user presence
-    console.log('Connected users:', getConnectedUsers())
+    // console.log('Connected users:', getConnectedUsers())
   }, 1000)
 
   return () => clearInterval(interval)

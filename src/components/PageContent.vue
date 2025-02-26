@@ -63,6 +63,13 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
   if (!visual)
     return
 
+  // If delta is too small, don't update the position
+  // This prevents accidental minor movements from triggering updates
+  if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+    console.log('[PageContent] Ignoring very small drag movement')
+    return
+  }
+
   // Convert pixel deltas to percentage of container
   const deltaXPercent = (deltaX / rect.width) * 100
   const deltaYPercent = (deltaY / rect.height) * 100
@@ -88,31 +95,59 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
 
   // Make sure we're still within the article's page range
   if (articleRelativePage >= 1 && articleRelativePage <= props.article.pageCount) {
+    // Create a new reference for each visual to ensure reactivity
     const updatedVisuals = props.article.visuals?.map?.(v =>
       v.id === visualId
         ? {
             ...v,
             ...newPosition,
             page: articleRelativePage, // Save the article-relative page number
+            _dragTimeStamp: Date.now(), // Add timestamp to force update detection
           }
-        : v,
+        : { ...v }, // Create a new reference for other visuals too
     ) || []
 
     // Recalculate available space for each page with the updated visuals
     const updatedPages = props.article.pages?.map?.((page) => {
       const pageVisuals = updatedVisuals.filter(v => v.page === page.pageNumber)
+
+      // Create a safe deep copy of the page using JSON parse/stringify
       return {
-        ...page,
+        ...JSON.parse(JSON.stringify(page)),
         visuals: pageVisuals,
         availableSpace: calculatePageAvailableSpace(pageVisuals, effectiveMargins.value),
+        _pageUpdated: Date.now(), // Add timestamp to force page update detection
       }
     }) || []
 
-    emit('updateArticle', {
-      ...props.article,
-      visuals: updatedVisuals,
-      pages: updatedPages,
+    // Add debug logging to trace the update flow
+    console.log('[PageContent] Emitting article update with new image position:', {
+      visualId,
+      oldPosition: {
+        x: visual.x,
+        y: visual.y,
+      },
+      newPosition: {
+        x: newPosition.x,
+        y: newPosition.y,
+      },
+      isDelta: true,
+      deltaX,
+      deltaY,
     })
+
+    // Create a completely new article object to ensure reactive updates
+    // Use JSON parse/stringify for safe cloning instead of structuredClone
+    const updatedArticle = JSON.parse(JSON.stringify(props.article))
+
+    // Update with our new data
+    updatedArticle.visuals = updatedVisuals
+    updatedArticle.pages = updatedPages
+    updatedArticle._lastUpdated = Date.now() // Force update detection
+
+    // Immediately emit the update to ensure it's propagated to other users
+    // This ensures the UI updates immediately without waiting for the store
+    emit('updateArticle', updatedArticle)
   }
 }
 
@@ -142,6 +177,15 @@ const visualsOnCurrentPage = computed(() => {
 
     return visualAbsolutePageNumber === absolutePageNumber
   })
+})
+
+// Add a reactive tracker to force visual updates when positions change
+const visualPositionTracker = computed(() => {
+  if (!props.article?.visuals)
+    return Date.now()
+
+  // Generate a string that will change when any visual position changes
+  return props.article.visuals.map(v => `${v.id}:${v.x}:${v.y}:${v.page}`).join('|')
 })
 
 // Calculate word count for this specific page
@@ -228,7 +272,7 @@ const availablePageSpace = computed(() => {
         <!-- Visuals (images) that can be dragged -->
         <DraggableVisual
           v-for="visual in visualsOnCurrentPage"
-          :key="visual.id"
+          :key="`${visual.id}-${visualPositionTracker}`"
           :visual="visual"
           :is-locked="article?.isLocked || isFlipbook"
           :current-page="currentPage"

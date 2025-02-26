@@ -27,9 +27,12 @@ if (!storedUser) {
 
 let connectedUsers: User[] = [{ id: userId, animal: userAnimal }]
 let currentShareId: string | null = null
-let unsubscribeFunction: (() => void) | null = null
-let isEditAllowed = true
+let messageChannel: any = null
 let presenceChannel: any = null
+let isEditAllowed = true
+
+// Flag to track most recent broadcast IDs to prevent sync loops
+const recentBroadcastIds: Record<string, number> = {}
 
 export function initializeCollaboration() {
   if (!userId) {
@@ -46,9 +49,9 @@ export function initializeCollaboration() {
 
 export async function joinSession(shareId: string, allowEdit: boolean) {
   // Clean up any existing subscription
-  if (unsubscribeFunction) {
-    unsubscribeFunction()
-    unsubscribeFunction = null
+  if (messageChannel) {
+    messageChannel.unsubscribe()
+    messageChannel = null
   }
 
   // Clean up existing presence channel
@@ -62,7 +65,7 @@ export async function joinSession(shareId: string, allowEdit: boolean) {
   isEditAllowed = allowEdit
   initializeCollaboration()
 
-  console.log('[Collaboration] Creating presence channel for:', shareId, 'with user:', { id: userId, animal: userAnimal })
+  console.log('[Collaboration] Joining session:', shareId, 'with user:', { id: userId, animal: userAnimal })
 
   // Create presence channel for user tracking
   presenceChannel = supabase.channel(`presence-${shareId}`)
@@ -70,77 +73,90 @@ export async function joinSession(shareId: string, allowEdit: boolean) {
   presenceChannel
     .on('presence', { event: 'sync' }, () => {
       const state = presenceChannel.presenceState()
-      console.log('[Collaboration] Presence SYNC event - raw state:', state)
+      console.log('[Collaboration] Presence SYNC event - users:', Object.keys(state).length)
+
       // Convert presence state to user array
       const users = Object.values(state)
         .flat()
         .map((presence: any) => presence.user as User)
 
       // Update connected users
-      console.log('[Collaboration] Presence sync - updating users from:', connectedUsers, 'to:', users)
       connectedUsers = users
     })
     .on('presence', { event: 'join' }, ({ newPresences }: { key: string, newPresences: any[] }) => {
       // Add new users to connected users
-      console.log('[Collaboration] Presence JOIN event - raw newPresences:', newPresences)
       const newUsers = newPresences.map((p: any) => p.user as User)
       const currentUserIds = connectedUsers.map(u => u.id)
-
-      console.log('[Collaboration] Presence join - new users:', newUsers)
 
       newUsers.forEach((user) => {
         if (!currentUserIds.includes(user.id)) {
           connectedUsers.push(user)
-          console.log('[Collaboration] Added user:', user, 'total users:', connectedUsers.length)
         }
       })
     })
     .on('presence', { event: 'leave' }, ({ leftPresences }: { key: string, leftPresences: any[] }) => {
       // Remove users who left
-      console.log('[Collaboration] Presence LEAVE event - raw leftPresences:', leftPresences)
       const leftUserIds = leftPresences.map((p: any) => p.user.id)
-      console.log('[Collaboration] Presence leave - leaving users:', leftPresences.map(p => p.user))
       connectedUsers = connectedUsers.filter(user => !leftUserIds.includes(user.id))
-      console.log('[Collaboration] After remove, remaining users:', connectedUsers)
     })
     .subscribe(async (status: string) => {
-      console.log('[Collaboration] Presence channel subscription status:', status)
       if (status === 'SUBSCRIBED') {
         // Track our presence
-        console.log('[Collaboration] Tracking presence for user:', { id: userId, animal: userAnimal })
         await presenceChannel.track({
           user: {
             id: userId,
             animal: userAnimal,
           },
         })
-        console.log('[Collaboration] Presence tracking initiated')
       }
     })
 
-  // Subscribe to channel for messages (article updates, etc.)
-  const messageChannel = supabase.channel(`magazine-${shareId}`)
+  // Subscribe to a single stable channel for all messages
+  messageChannel = supabase.channel(`magazine-${shareId}`)
 
   messageChannel
-    .on('broadcast', { event: '*' }, ({ event, payload }) => {
+    .on('broadcast', { event: '*' }, ({ event, payload }: { event: string, payload: any }) => {
+      console.log(`[Collaboration] Received ${event} event from ${payload?.user?.id}`)
+
+      // Skip processing if message is from self
+      if (payload?.user?.id === userId) {
+        console.log('[Collaboration] Ignoring message from self')
+        return
+      }
+
+      // Skip if we've seen this broadcast ID recently (prevents loops)
+      const broadcastId = payload?.broadcastId
+      if (broadcastId && recentBroadcastIds[broadcastId]) {
+        console.log('[Collaboration] Ignoring duplicate broadcast:', broadcastId)
+        return
+      }
+
+      // Store broadcast ID to prevent reprocessing
+      if (broadcastId) {
+        recentBroadcastIds[broadcastId] = Date.now()
+
+        // Clean up old broadcast IDs (older than 10 seconds)
+        const now = Date.now()
+        Object.keys(recentBroadcastIds).forEach((id) => {
+          if (now - recentBroadcastIds[id] > 10000) {
+            delete recentBroadcastIds[id]
+          }
+        })
+      }
+
       handleMessage({ event, data: payload })
     })
-    .subscribe()
+    .subscribe((status: string) => {
+      console.log('[Collaboration] Message channel subscription status:', status)
+    })
 
-  unsubscribeFunction = () => {
-    messageChannel.unsubscribe()
-
-    if (presenceChannel) {
-      presenceChannel.untrack()
-      presenceChannel.unsubscribe()
-    }
+  return () => {
+    leaveSession()
   }
-
-  return unsubscribeFunction
 }
 
 export async function leaveSession() {
-  if (currentShareId && unsubscribeFunction) {
+  if (currentShareId) {
     // Untrack presence
     if (presenceChannel) {
       presenceChannel.untrack()
@@ -149,8 +165,11 @@ export async function leaveSession() {
     }
 
     // Cleanup message channel
-    unsubscribeFunction()
-    unsubscribeFunction = null
+    if (messageChannel) {
+      messageChannel.unsubscribe()
+      messageChannel = null
+    }
+
     currentShareId = null
     connectedUsers = [{ id: userId, animal: userAnimal }]
   }
@@ -159,30 +178,74 @@ export async function leaveSession() {
 function handleMessage(payload: MessagePayload) {
   const { event, data } = payload
 
+  if (!isEditAllowed) {
+    console.log('[Collaboration] Edit not allowed, ignoring message:', event)
+    return
+  }
+
+  const magazineStore = getMagazineStore()
+  if (!magazineStore) {
+    console.error('[Collaboration] Failed to handle message: magazineStore not available')
+    return
+  }
+
   switch (event) {
     case 'state:update':
       handleStateUpdate(data as { allowEdit: boolean })
       break
+
     case 'article:reorder':
-      handleArticleReorder(data as { articles: any[], user: User })
+      console.log('[Collaboration] Applying article reorder')
+      magazineStore.reorderArticles(data.articles as any[], data.user as User, false)
       break
-    case 'article:update':
-      handleArticleUpdate(data as { article: any, user: User })
+
+    case 'article:update': {
+      console.log('[Collaboration] Applying article update:', (data as any).article.id)
+      const articleCopy = JSON.parse(JSON.stringify((data as any).article))
+      articleCopy._remoteSync = true
+      magazineStore.updateArticle(articleCopy, undefined, data.user as User, false)
       break
+    }
+
     case 'article:delete':
-      handleArticleDelete(data as { articleId: string, user: User })
+      console.log('[Collaboration] Applying article delete:', (data as any).articleId)
+      magazineStore.deleteArticle((data as any).articleId, data.user as User, false)
       break
+
+    case 'magazine:update': {
+      console.log('[Collaboration] Applying magazine settings update')
+      // Force synchronous update with a deep-cloned settings object
+      const settingsCopy = JSON.parse(JSON.stringify((data as any).settings))
+
+      // Add a timestamp to ensure Vue detects the change
+      settingsCopy._updateTimestamp = Date.now()
+
+      magazineStore.syncMagazineSettings(settingsCopy, false)
+      break
+    }
+
     default:
       console.log('Unknown event:', event)
+  }
+}
+
+function handleStateUpdate(data: { allowEdit: boolean }) {
+  isEditAllowed = data.allowEdit
+
+  const magazineStore = getMagazineStore()
+  if (magazineStore) {
+    magazineStore.setShareStatus({
+      isShared: true,
+      allowEdit: data.allowEdit,
+      shareId: currentShareId,
+    })
   }
 }
 
 // Update edit status without leaving the session
 export function updateEditStatus(allowEdit: boolean) {
   isEditAllowed = allowEdit
-
-  // Update the store and broadcast the change
-  updateShareStatus(allowEdit)
+  broadcastStateUpdate(allowEdit)
 }
 
 // This function will be called from a component that uses the store
@@ -194,192 +257,100 @@ export function updateShareStatus(allowEdit: boolean) {
       allowEdit,
       shareId: currentShareId,
     })
-
-    // Broadcast the state update to all users
     broadcastStateUpdate(allowEdit)
   }
 }
 
-// Handle state updates from the channel
-function handleStateUpdate(data: { allowEdit: boolean }) {
-  // Store the data to be used later
-  const pendingUpdate = {
-    allowEdit: data.allowEdit,
+// Simplified broadcast function used by all other broadcast methods
+function broadcast(event: string, payload: any) {
+  if (!currentShareId || !messageChannel) {
+    console.error('[Collaboration] Cannot broadcast - no active session')
+    return Promise.reject(new Error('No active session'))
   }
 
-  // Update local edit allowed status
-  isEditAllowed = data.allowEdit
-
-  console.log('Received state update:', pendingUpdate)
-
-  // Try to update the store directly if it's available
-  const magazineStore = getMagazineStore()
-  if (magazineStore) {
-    magazineStore.setShareStatus({
-      isShared: true,
-      allowEdit: pendingUpdate.allowEdit,
-      shareId: currentShareId,
-    })
+  // Add standard fields to all payloads
+  const fullPayload = {
+    ...payload,
+    user: { id: userId, animal: userAnimal },
+    timestamp: Date.now(),
+    broadcastId: `${userId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
   }
-  else {
-    // Log for debugging if store isn't available
-    console.log('Store not available for update')
-  }
+
+  console.log(`[Collaboration] Broadcasting ${event}`)
+
+  return messageChannel.send({
+    type: 'broadcast',
+    event,
+    payload: fullPayload,
+  }).then(() => {
+    console.log(`[Collaboration] ${event} sent successfully`)
+
+    // Store our own broadcast ID to prevent loop processing
+    recentBroadcastIds[fullPayload.broadcastId] = Date.now()
+    return true
+  }).catch((error: Error) => {
+    console.error(`[Collaboration] Failed to send ${event}:`, error)
+    return false
+  })
 }
 
-// Handlers for article operations
-function handleArticleReorder(data: { articles: any[], user: User }) {
-  if (!isEditAllowed)
-    return
-
-  const magazineStore = getMagazineStore()
-  if (magazineStore) {
-    // Prevent triggering another broadcast by setting a flag
-    magazineStore.reorderArticles(data.articles, data.user, false)
-  }
-}
-
-function handleArticleUpdate(data: { article: any, user: User }) {
-  if (!isEditAllowed)
-    return
-
-  const magazineStore = getMagazineStore()
-  if (magazineStore) {
-    magazineStore.updateArticle(data.article, {}, data.user, false)
-  }
-}
-
-function handleArticleDelete(data: { articleId: string, user: User }) {
-  if (!isEditAllowed)
-    return
-
-  const magazineStore = getMagazineStore()
-  if (magazineStore) {
-    magazineStore.deleteArticle(data.articleId, data.user, false)
-  }
-}
-
-// Functions to broadcast changes to other users
+// Simplified broadcast functions for various operations
 export function broadcastArticleReorder(articles: any[]) {
   if (!currentShareId)
     return
 
-  const channel = supabase.channel(`magazine-${currentShareId}`)
-  channel.send({
-    type: 'broadcast',
-    event: 'article:reorder',
-    payload: {
-      articles,
-      user: { id: userId, animal: userAnimal },
-      timestamp: Date.now(),
-    },
+  const cleanArticles = articles.map((article) => {
+    const cleaned = JSON.parse(JSON.stringify(article))
+    // Remove any temporary properties
+    delete (cleaned as any)._dragTimeStamp
+    delete (cleaned as any)._lastUpdated
+    delete (cleaned as any)._remoteSync
+    return cleaned
   })
+
+  broadcast('article:reorder', { articles: cleanArticles })
 }
 
 export function broadcastArticleUpdate(article: any) {
   if (!currentShareId)
     return
 
-  const channel = supabase.channel(`magazine-${currentShareId}`)
-  channel.send({
-    type: 'broadcast',
-    event: 'article:update',
-    payload: {
-      article,
-      user: { id: userId, animal: userAnimal },
-      timestamp: Date.now(),
-    },
-  })
+  // Create clean copy for broadcasting
+  const cleanedArticle = JSON.parse(JSON.stringify(article))
+
+  // Remove any temporary properties
+  delete (cleanedArticle as any)._dragTimeStamp
+  delete (cleanedArticle as any)._lastUpdated
+  delete (cleanedArticle as any)._remoteSync
+  delete (cleanedArticle as any)._broadcastTimestamp
+
+  broadcast('article:update', { article: cleanedArticle })
 }
 
 export function broadcastArticleDelete(articleId: string) {
   if (!currentShareId)
     return
-
-  const channel = supabase.channel(`magazine-${currentShareId}`)
-  channel.send({
-    type: 'broadcast',
-    event: 'article:delete',
-    payload: {
-      articleId,
-      user: { id: userId, animal: userAnimal },
-      timestamp: Date.now(),
-    },
-  })
+  broadcast('article:delete', { articleId })
 }
 
-// Function to broadcast state updates (like edit permissions)
-export function broadcastStateUpdate(allowEdit: boolean) {
+export function broadcastMagazineSettings(settings: any) {
   if (!currentShareId)
     return
 
-  const channel = supabase.channel(`magazine-${currentShareId}`)
-  channel.send({
-    type: 'broadcast',
-    event: 'state:update',
-    payload: {
-      allowEdit,
-      timestamp: Date.now(),
-    },
-  })
+  // Create clean copy without temp properties
+  const cleanSettings = JSON.parse(JSON.stringify(settings))
+  broadcast('magazine:update', { settings: cleanSettings })
+}
+
+export function broadcastStateUpdate(allowEdit: boolean) {
+  if (!currentShareId)
+    return
+  broadcast('state:update', { allowEdit })
 }
 
 export const getSessionId = () => userId
 export const getSessionUser = () => ({ id: userId, animal: userAnimal })
 export const isCollaborating = () => !!currentShareId
 export const getConnectedPeers = () => connectedUsers.length - 1
-export function getConnectedUsers() {
-  console.log('[Collaboration] getConnectedUsers called, returning:', connectedUsers)
-
-  // If the connectedUsers array is empty, add at least the current user
-  if (connectedUsers.length === 0) {
-    console.log('[Collaboration] Connected users array is empty, adding current user')
-    connectedUsers = [{
-      id: userId,
-      animal: userAnimal,
-    }]
-  }
-
-  // If Supabase presence channel exists, check its state
-  if (presenceChannel && currentShareId) {
-    try {
-      const presenceState = presenceChannel.presenceState()
-      console.log('[Collaboration] Current presence state from channel:', presenceState)
-
-      // If there is presence data in the channel but not in our array, sync them
-      if (Object.keys(presenceState).length > 0 && connectedUsers.length < Object.keys(presenceState).length) {
-        console.log('[Collaboration] Syncing from presence state because connected users are out of sync')
-        const usersFromPresence = Object.values(presenceState)
-          .flat()
-          .map((presence: any) => presence.user as User)
-
-        if (usersFromPresence.length > 0) {
-          connectedUsers = usersFromPresence
-          console.log('[Collaboration] Updated connected users from presence state:', connectedUsers)
-        }
-      }
-
-      // Try to retrack presence if we're connected but not in the presence state
-      const ourPresenceKeyExists = Object.keys(presenceState).some((key) => {
-        const users = presenceState[key]
-        return users.some((p: any) => p.user && p.user.id === userId)
-      })
-
-      if (!ourPresenceKeyExists && currentShareId) {
-        console.log('[Collaboration] Our presence is not in the state, re-tracking...')
-        presenceChannel.track({
-          user: {
-            id: userId,
-            animal: userAnimal,
-          },
-        }).then(() => console.log('[Collaboration] Re-tracked presence'))
-      }
-    }
-    catch (error) {
-      console.error('[Collaboration] Error checking presence state:', error)
-    }
-  }
-
-  return [...connectedUsers] // Return a copy to prevent mutations
-}
+export const getConnectedUsers = () => [...connectedUsers] // Return a copy to prevent mutations
 export const isEditingAllowed = () => isEditAllowed

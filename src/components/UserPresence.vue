@@ -17,9 +17,9 @@ const usersList = ref<User[]>([])
 
 // Update usersList when props.users changes
 watch(() => props.users, (newUsers) => {
-  console.log('[UserPresence] Received users update:', newUsers)
+  // console.log('[UserPresence] Received users update:', newUsers)
   usersList.value = [...newUsers]
-  console.log('[UserPresence] User presence updated:', usersList.value.length, 'users')
+  // console.log('[UserPresence] User presence updated:', usersList.value.length, 'users')
 }, { immediate: true, deep: true })
 
 function toggleUserList() {

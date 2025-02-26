@@ -37,6 +37,7 @@ export interface Visual {
   page: number
   url?: string
   spaceOccupied: number // Percentage of page space taken (0-100)
+  _dragTimeStamp?: number // Optional timestamp for drag operations
 }
 
 export interface ArticlePage {
@@ -60,6 +61,7 @@ export interface Article {
   lineHeight: LineHeight
   isLocked: boolean
   pages: ArticlePage[] // Array of page-specific content
+  _lastUpdated?: number // Optional timestamp for tracking updates
 }
 
 export interface HistoryEntry {

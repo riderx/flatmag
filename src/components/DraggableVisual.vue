@@ -40,6 +40,29 @@ let startY = 0
 let deltaX = 0
 let deltaY = 0
 
+// Track if the visual was updated remotely to prevent resetting positions
+const lastPosition = ref({ x: props.visual.x, y: props.visual.y, page: props.visual.page })
+
+// When visual position changes, update our tracking
+watch(() => [props.visual.x, props.visual.y, props.visual.page], ([newX, newY, newPage]) => {
+  // If position changed but we're not dragging, it's a remote update
+  // So we should reset the element's transform to avoid conflict
+  if (!isDragging.value
+    && (lastPosition.value.x !== newX
+      || lastPosition.value.y !== newY
+      || lastPosition.value.page !== newPage)) {
+    console.log('[DraggableVisual] Detected remote position update, resetting transform')
+
+    // Reset the element's transform to ensure it adopts the new position
+    if (el.value) {
+      el.value.style.transform = ''
+    }
+
+    // Update our tracking
+    lastPosition.value = { x: newX, y: newY, page: newPage }
+  }
+}, { immediate: true })
+
 function handleMouseDown(e: MouseEvent) {
   if (isDragDisabled.value)
     return
@@ -80,16 +103,44 @@ function handleMouseUp() {
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
 
-  // Reset transform
-  if (el.value) {
-    el.value.style.transform = 'none'
-  }
-
   // Calculate container dimensions to convert to percent
   const container = document.getElementById(`article-${props.article.id}-page-${props.currentPage - 1}`)
-  if (container && deltaX !== 0 && deltaY !== 0) {
+
+  // Don't reset transform immediately - wait to see if we need to emit an update
+  const isDragSignificant = Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2
+
+  // Always emit the dragEnd event, but only if the container exists
+  if (container && isDragSignificant) {
+    // Add debugging to track the drag end event flow
+    console.log('[DraggableVisual] Drag ended, emitting dragEnd event:', {
+      visualId: props.visual.id,
+      deltaX,
+      deltaY,
+      articleId: props.article.id,
+    })
+
     // Emit the change to parent with the deltas
     emit('dragEnd', props.visual.id, deltaX, deltaY)
+
+    // Don't reset transform - parent component will handle position updates
+
+    // Update our last position with expected new values
+    // This helps avoid reset conflicts when the state update comes back
+    const rect = container.getBoundingClientRect()
+    const deltaXPercent = (deltaX / rect.width) * 100
+    const deltaYPercent = (deltaY / rect.height) * 100
+
+    lastPosition.value = {
+      x: props.visual.x + deltaXPercent,
+      y: props.visual.y + deltaYPercent,
+      page: props.visual.page,
+    }
+  }
+  else {
+    // If the drag wasn't significant, just reset transform
+    if (el.value) {
+      el.value.style.transform = ''
+    }
   }
 }
 
@@ -160,15 +211,24 @@ const visualStyle = computed(() => {
   const width = sizeToPercent(props.visual.width as SizeRatio)
   const height = sizeToPercent(props.visual.height as SizeRatio)
 
+  // Force transform to empty string to ensure position is refreshed from props
+  // and add a special data attribute to force Vue to recognize position changes
   return {
     width: `${width}%`,
     height: `${height}%`,
     left: `${props.visual.x}%`,
     top: `${props.visual.y}%`,
     cursor: isDragDisabled.value ? 'default' : isDragging.value ? 'grabbing' : 'grab',
-    zIndex: props.visual.width === 'full' && props.visual.height === 'full' ? 0 : isDragging.value ? 10 : 1,
+    zIndex: props.visual.width === 'full' && props.visual.height === 'full' ? 0 : isDragging.value ? 100 : 10,
+    transform: '', // Force position to refresh on render
+    transition: isDragging.value ? 'none' : 'transform 0s', // Prevent transition effects
   }
 })
+
+// Computed property to help with data attribute tracking of position changes
+const positionTracker = computed(() =>
+  `${props.visual.id}:${props.visual.x}:${props.visual.y}:${props.visual.page}`,
+)
 </script>
 
 <template>
@@ -176,7 +236,12 @@ const visualStyle = computed(() => {
     ref="el"
     :style="visualStyle"
     class="absolute rounded-sm overflow-hidden select-none touch-none"
-    :class="{ 'ring-2 ring-blue-500': isDragging, 'pointer-events-none': isDragDisabled }"
+    :class="{
+      'ring-2 ring-blue-500 shadow-lg': isDragging,
+      'pointer-events-none': isDragDisabled,
+      'hover:ring-1 hover:ring-blue-300': !isDragDisabled && !isDragging,
+    }"
+    :data-position-tracker="positionTracker"
     @mousedown="handleMouseDown"
   >
     <!-- Loading state -->

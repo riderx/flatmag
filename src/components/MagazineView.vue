@@ -3,6 +3,7 @@ import type { Article, ZoomLevel } from '../types'
 import { Grid, Grid2X2, Maximize2, Minus, Plus, ZoomIn } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useMagazineStore } from '../store/magazineStore'
+import { calculatePageAvailableSpace } from '../utils/calculations'
 import PageContent from './PageContent.vue'
 import PageHeader from './PageHeader.vue'
 
@@ -13,7 +14,7 @@ const props = defineProps<{
   isEditingAllowed: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'addPage'): void
   (e: 'removePage'): void
   (e: 'editArticle', article: Article): void
@@ -154,6 +155,87 @@ function getArticlesForPage(pageIndex: number) {
     return pageIndex + 1 >= startPage && pageIndex + 1 <= endPage
   })
 }
+
+function handleArticleUpdate(article: any) {
+  console.log('[MagazineView] Received article update, forwarding to parent:', article)
+
+  // Create a clean copy of the article to ensure reactivity
+  // Use JSON parse/stringify instead of structuredClone for safer cloning
+  const cleanArticle = JSON.parse(JSON.stringify(article))
+
+  // Remove temporary properties that could cause issues
+  if (cleanArticle.visuals) {
+    cleanArticle.visuals = cleanArticle.visuals.map((v: any) => {
+      // Create a new object without _dragTimeStamp
+      const { _dragTimeStamp, ...restVisual } = v
+      return restVisual
+    })
+  }
+
+  // Also clean _remoteSync flag if present
+  if ('_remoteSync' in cleanArticle) {
+    delete cleanArticle._remoteSync
+  }
+
+  // Ensure page content is recalculated after position changes
+  // Recalculate available space for each page with the updated visuals
+  if (cleanArticle.pages) {
+    const margins = magazineStore.pageMargins
+    cleanArticle.pages = cleanArticle.pages.map((page: any) => {
+      // Ensure we're using the latest visual positions
+      const pageVisuals = cleanArticle.visuals?.filter((v: any) => v.page === page.pageNumber) || []
+
+      // Only update pages that contain visuals that were moved
+      const pageMargins = margins[page.pageNumber] || DEFAULT_MARGINS
+      return {
+        ...page,
+        availableSpace: calculatePageAvailableSpace(pageVisuals, pageMargins),
+        _pageUpdateTimestamp: Date.now(),
+      }
+    })
+  }
+
+  // Add a sync timestamp to force update detection in store
+  cleanArticle._syncTimestamp = Date.now()
+
+  // Forward the article to the parent component
+  emit('updateArticle', cleanArticle)
+}
+
+// New function to handle magazine setting changes and ensure they sync
+function updateMagazineSetting(setting: string, value: any) {
+  console.log(`[MagazineView] Updating magazine setting: ${setting} to:`, value)
+
+  // Update the setting in the store
+  if (setting === 'title') {
+    magazineStore.title = value
+  }
+  else if (setting === 'issueNumber') {
+    magazineStore.issueNumber = value
+  }
+  else if (setting === 'publicationDate') {
+    magazineStore.publicationDate = value
+  }
+  else if (setting === 'pageRatio') {
+    magazineStore.pageRatio = value
+  }
+  else if (setting === 'zoomLevel') {
+    magazineStore.setZoomLevel(value)
+  }
+
+  // Sync all magazine settings
+  const settings = {
+    title: magazineStore.title,
+    issueNumber: magazineStore.issueNumber,
+    publicationDate: magazineStore.publicationDate,
+    pageRatio: magazineStore.pageRatio,
+    zoomLevel: magazineStore.zoomLevel,
+    pages: magazineStore.pages,
+  }
+
+  // Use the new syncMagazineSettings function to both update local state and broadcast
+  magazineStore.syncMagazineSettings(settings)
+}
 </script>
 
 <template>
@@ -191,7 +273,7 @@ function getArticlesForPage(pageIndex: number) {
               ? 'border-blue-600 text-blue-600'
               : 'border-gray-300 text-gray-700 hover:bg-gray-50'
           }`"
-          @click="magazineStore.setZoomLevel('all')"
+          @click="updateMagazineSetting('zoomLevel', 'all')"
         >
           <Maximize2 class="w-4 h-4" />
           <span class="ml-2 hidden sm:inline">All</span>
@@ -202,7 +284,7 @@ function getArticlesForPage(pageIndex: number) {
               ? 'border-blue-600 text-blue-600'
               : 'border-gray-300 text-gray-700 hover:bg-gray-50'
           }`"
-          @click="magazineStore.setZoomLevel('4')"
+          @click="updateMagazineSetting('zoomLevel', '4')"
         >
           <Grid2X2 class="w-4 h-4" />
           <span class="ml-2 hidden sm:inline">4 Pages</span>
@@ -213,7 +295,7 @@ function getArticlesForPage(pageIndex: number) {
               ? 'border-blue-600 text-blue-600'
               : 'border-gray-300 text-gray-700 hover:bg-gray-50'
           }`"
-          @click="magazineStore.setZoomLevel('2')"
+          @click="updateMagazineSetting('zoomLevel', '2')"
         >
           <Grid class="w-4 h-4" />
           <span class="ml-2 hidden sm:inline">2 Pages</span>
@@ -224,7 +306,7 @@ function getArticlesForPage(pageIndex: number) {
               ? 'border-blue-600 text-blue-600'
               : 'border-gray-300 text-gray-700 hover:bg-gray-50'
           }`"
-          @click="magazineStore.setZoomLevel('1')"
+          @click="updateMagazineSetting('zoomLevel', '1')"
         >
           <ZoomIn class="w-4 h-4" />
           <span class="ml-2 hidden sm:inline">1 Page</span>
@@ -259,7 +341,7 @@ function getArticlesForPage(pageIndex: number) {
           :style="zoomLevel === '1' ? { width: `${pageDimensions.width}px`, maxWidth: '100%' } : {}"
           @margins-change="(newMargins) => updatePageMargins(pageIndex + 1, newMargins)"
           @edit-article="$emit('editArticle', $event)"
-          @update-article="$emit('updateArticle', $event)"
+          @update-article="handleArticleUpdate"
         />
         <div
           class="bg-white rounded-lg shadow-lg mx-auto"
@@ -277,7 +359,7 @@ function getArticlesForPage(pageIndex: number) {
               :margins="getPageMargins(pageIndex + 1)"
               :is-editing-allowed="isEditingAllowed"
               @edit-article="$emit('editArticle', $event)"
-              @update-article="$emit('updateArticle', $event)"
+              @update-article="handleArticleUpdate"
             />
           </template>
           <div

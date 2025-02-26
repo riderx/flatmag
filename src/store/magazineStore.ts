@@ -1,4 +1,4 @@
-import type { Tag } from '../types'
+import type { Tag, Visual } from '../types'
 import type { User } from '../utils/collaboration'
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
@@ -25,20 +25,7 @@ export interface Article {
   wordsPerPage: number
   lineHeight: string
   isLocked: boolean
-}
-
-export interface Visual {
-  id: string
-  type: 'image' | 'video'
-  url: string
-  caption: string
-  width: number
-  height: number
-  position: {
-    x: number
-    y: number
-    page: number
-  }
+  pages: any[]
 }
 
 export interface PageMargin {
@@ -196,6 +183,7 @@ export const useMagazineStore = defineStore('magazine', () => {
       wordsPerPage: article.wordsPerPage || 500,
       lineHeight: article.lineHeight || '1/100',
       isLocked: article.isLocked || false,
+      pages: article.pages || [],
     }
 
     // Ensure articles.value is initialized
@@ -212,25 +200,147 @@ export const useMagazineStore = defineStore('magazine', () => {
     const articleId = typeof articleOrId === 'string' ? articleOrId : articleOrId.id
     const articleIndex = articles.value.findIndex(a => a.id === articleId)
 
-    if (articleIndex === -1)
+    if (articleIndex === -1) {
+      console.warn('[MagazineStore] Cannot update article, not found:', articleId)
       return
+    }
 
     const article = articles.value[articleIndex]
+    let updatedArticle: Article
+
+    // Check if this is a remote sync update with the full article
+    const isRemoteSync = typeof articleOrId === 'object' && (articleOrId as any)._remoteSync === true
 
     if (typeof articleOrId === 'object' && !updates) {
-      // Replace entirely
-      articles.value[articleIndex] = articleOrId
+      // Replace entirely - create a deep copy to ensure reactivity
+      updatedArticle = JSON.parse(JSON.stringify(articleOrId))
+
+      // When receiving a remote update, ensure we preserve local properties that shouldn't be overwritten
+      if (isRemoteSync) {
+        console.log('[MagazineStore] Applying remote article update:', updatedArticle.id)
+
+        // Force Vue to detect the change by using the array splice method
+        // This ensures the reactive system recognizes the update
+        articles.value.splice(articleIndex, 1, updatedArticle)
+      }
+      else {
+        articles.value[articleIndex] = updatedArticle
+      }
+
       addToHistory(`Updated article ${article.title}`, user)
     }
     else if (updates) {
       // Update specific fields
-      articles.value[articleIndex] = { ...article, ...updates }
+      updatedArticle = { ...article, ...updates }
+
+      // Force Vue to detect the change for partial updates too
+      articles.value.splice(articleIndex, 1, updatedArticle)
       addToHistory(`Updated article ${article.title}`, user)
     }
+    else {
+      updatedArticle = article
+    }
 
-    // Broadcast changes to other users if we're in a shared session
-    if (isShared.value && shouldBroadcast) {
-      broadcastArticleUpdate(articles.value[articleIndex])
+    // Check for forced update via timestamp properties
+    const hasForceUpdate = (updatedArticle as any)._lastUpdated !== undefined
+      || (updatedArticle as any)._syncTimestamp !== undefined
+      || (updatedArticle as any)._remoteSync === true
+
+    // Enhanced detection of visual position changes
+    const originalVisuals = article.visuals || []
+    const updatedVisuals = updatedArticle.visuals || []
+
+    // Check position changes with a smaller threshold for better detection
+    const visualPositionsChanged = updatedVisuals.some((updatedVisual) => {
+      const originalVisual = originalVisuals.find(v => v.id === updatedVisual.id)
+      return originalVisual && (
+        Math.abs(originalVisual.x - updatedVisual.x) > 0.001 // Smaller threshold for more sensitive detection
+        || Math.abs(originalVisual.y - updatedVisual.y) > 0.001
+        || originalVisual.page !== updatedVisual.page
+      )
+    })
+
+    // Check if any visuals were added or removed
+    const visualsAddedOrRemoved = originalVisuals.length !== updatedVisuals.length
+
+    // Check if pages were updated
+    const pagesUpdated = JSON.stringify(article.pages) !== JSON.stringify(updatedArticle.pages)
+
+    // Log position changes for debugging
+    if (visualPositionsChanged) {
+      console.log('[MagazineStore] Visual positions changed:', {
+        articleId: updatedArticle.id,
+        visualsChanged: updatedVisuals.filter((updatedVisual) => {
+          const originalVisual = originalVisuals.find(v => v.id === updatedVisual.id)
+          return originalVisual && (
+            Math.abs(originalVisual.x - updatedVisual.x) > 0.001
+            || Math.abs(originalVisual.y - updatedVisual.y) > 0.001
+            || originalVisual.page !== updatedVisual.page
+          )
+        }).map(v => ({
+          id: v.id,
+          oldX: originalVisuals.find(ov => ov.id === v.id)?.x,
+          newX: v.x,
+          oldY: originalVisuals.find(ov => ov.id === v.id)?.y,
+          newY: v.y,
+        })),
+      })
+    }
+
+    // Skip broadcasting if:
+    // - This is a remote sync update (to avoid loops)
+    // - Broadcasting is explicitly disabled
+    const skipBroadcast = isRemoteSync || !shouldBroadcast
+
+    // Always broadcast if:
+    // - visual positions changed
+    // - visuals were added/removed
+    // - pages were updated
+    // - a force update is requested
+    // - explicit broadcast is requested
+    const shouldSendBroadcast = isShared.value && !skipBroadcast && (
+      visualPositionsChanged
+      || visualsAddedOrRemoved
+      || pagesUpdated
+      || hasForceUpdate
+    )
+
+    if (shouldSendBroadcast) {
+      console.log('[MagazineStore] Broadcasting article update:', {
+        articleId: updatedArticle.id,
+        visualPositionsChanged,
+        visualsAddedOrRemoved,
+        pagesUpdated,
+        shouldBroadcast,
+        hasForceUpdate,
+        isRemoteSync,
+      })
+
+      // Create a clean copy for broadcasting
+      const cleanedArticle = JSON.parse(JSON.stringify(articles.value[articleIndex]))
+
+      // Remove temporary properties used for update detection
+      if ('_lastUpdated' in cleanedArticle) {
+        delete (cleanedArticle as any)._lastUpdated
+      }
+      if ('_syncTimestamp' in cleanedArticle) {
+        delete (cleanedArticle as any)._syncTimestamp
+      }
+      if ('_remoteSync' in cleanedArticle) {
+        delete (cleanedArticle as any)._remoteSync
+      }
+
+      // Add broadcast timestamp to force update recognition
+      const broadcastArticle = {
+        ...cleanedArticle,
+        _broadcastTimestamp: Date.now(),
+      }
+
+      // Send the update to other users
+      broadcastArticleUpdate(broadcastArticle)
+    }
+    else if (isRemoteSync) {
+      console.log('[MagazineStore] Not broadcasting remote update to avoid loops')
     }
   }
 
@@ -391,6 +501,74 @@ export const useMagazineStore = defineStore('magazine', () => {
     }
   }
 
+  // New function to sync magazine settings (title, issueNumber, etc.)
+  function syncMagazineSettings(settings: any, shouldBroadcast = true) {
+    console.log('[MagazineStore] Syncing magazine settings:', settings)
+
+    // Update all relevant settings that are provided
+    if (settings.title !== undefined) {
+      title.value = settings.title
+    }
+
+    if (settings.issueNumber !== undefined) {
+      issueNumber.value = Number(settings.issueNumber)
+    }
+
+    if (settings.publicationDate !== undefined) {
+      publicationDate.value = settings.publicationDate
+    }
+
+    if (settings.pageRatio !== undefined) {
+      pageRatio.value = settings.pageRatio
+    }
+
+    if (settings.pages !== undefined) {
+      pages.value = Number(settings.pages)
+    }
+
+    if (settings.zoomLevel !== undefined) {
+      zoomLevel.value = settings.zoomLevel
+    }
+
+    // Handle magazine-specific tags
+    if (settings.magazineTags !== undefined) {
+      // Use splice to replace the entire array to ensure reactivity
+      const newTags = [...settings.magazineTags]
+      magazineTags.value = newTags
+    }
+
+    // Force reactivity by adding a timestamp property
+    const timestamp = Date.now()
+    const reactivityMarker = `_syncTimestamp_${timestamp}`
+    // @ts-expect-error Adding temporary property for reactivity
+    magazineTags.value[reactivityMarker] = timestamp
+    setTimeout(() => {
+      // @ts-expect-error Removing temporary property
+      delete magazineTags.value[reactivityMarker]
+    }, 100)
+
+    addToHistory('Updated magazine settings')
+    saveToLocalStorage()
+
+    // Import the broadcast function only if we need it
+    if (shouldBroadcast && isShared.value) {
+      import('../utils/collaboration').then(({ broadcastMagazineSettings }) => {
+        // Get current settings to broadcast
+        const currentSettings = {
+          title: title.value,
+          issueNumber: issueNumber.value,
+          publicationDate: publicationDate.value,
+          pageRatio: pageRatio.value,
+          pages: pages.value,
+          zoomLevel: zoomLevel.value,
+          magazineTags: magazineTags.value,
+        }
+
+        broadcastMagazineSettings(currentSettings)
+      })
+    }
+  }
+
   function undo() {
     if (history.past.length > 0) {
       const previous = history.past.pop()
@@ -524,6 +702,7 @@ export const useMagazineStore = defineStore('magazine', () => {
     updatePageMargin,
     reorderArticles,
     syncState,
+    syncMagazineSettings,
     undo,
     redo,
     jumpToHistory,
