@@ -169,7 +169,7 @@ export const useMagazineStore = defineStore('magazine', () => {
     { deep: true },
   )
 
-  function addArticle(article: Partial<Article>) {
+  function addArticle(article: Partial<Article>, user?: User, shouldBroadcast = true) {
     const newArticle: Article = {
       id: article.id || uuidv4(),
       title: article.title || 'New Article',
@@ -192,7 +192,18 @@ export const useMagazineStore = defineStore('magazine', () => {
     }
 
     articles.value.push(newArticle)
-    addToHistory(`Added article: ${newArticle.title}`)
+    addToHistory(`Added article: ${newArticle.title}`, user)
+
+    // Broadcast new article to other users if we're in a shared session
+    if (isShared.value && shouldBroadcast && !(article as any)?._remoteSync) {
+      console.log('[MagazineStore] Broadcasting new article:', newArticle.id)
+
+      // Import the broadcast function dynamically
+      import('../utils/collaboration').then(({ broadcastArticleAdd }) => {
+        broadcastArticleAdd(newArticle)
+      })
+    }
+
     return newArticle
   }
 

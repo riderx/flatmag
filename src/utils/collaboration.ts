@@ -194,6 +194,15 @@ function handleMessage(payload: MessagePayload) {
       handleStateUpdate(data as { allowEdit: boolean })
       break
 
+    case 'article:add': {
+      console.log('[Collaboration] Applying new article:', (data as any).article.id)
+      const articleCopy = JSON.parse(JSON.stringify((data as any).article))
+      articleCopy._remoteSync = true
+      // Use addArticle function for new articles
+      magazineStore.addArticle(articleCopy)
+      break
+    }
+
     case 'article:reorder':
       console.log('[Collaboration] Applying article reorder')
       magazineStore.reorderArticles(data.articles as any[], data.user as User, false)
@@ -345,6 +354,31 @@ export function broadcastArticleDelete(articleId: string) {
   if (!currentShareId)
     return
   broadcast('article:delete', { articleId })
+}
+
+export function broadcastArticleAdd(article: any) {
+  if (!currentShareId)
+    return
+
+  // Create clean copy for broadcasting
+  const cleanedArticle = JSON.parse(JSON.stringify(article))
+
+  // Log what we're broadcasting
+  console.log('[Collaboration] Broadcasting new article:', {
+    id: cleanedArticle.id,
+    title: cleanedArticle.title,
+  })
+
+  // Add our own broadcast timestamp to ensure it's processed
+  cleanedArticle._collaboration_timestamp = Date.now()
+  cleanedArticle._newArticle = true
+
+  // Remove any temporary properties that shouldn't be sent
+  delete (cleanedArticle as any)._dragTimeStamp
+  delete (cleanedArticle as any)._lastUpdated
+  delete (cleanedArticle as any)._remoteSync
+
+  broadcast('article:add', { article: cleanedArticle })
 }
 
 export function broadcastMagazineSettings(settings: any) {
