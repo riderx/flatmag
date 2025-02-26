@@ -642,6 +642,24 @@ export const useMagazineStore = defineStore('magazine', () => {
       // Update future and current state
       history.future = [...newFuture, ...history.future]
       articles.value = [...targetState.articles]
+
+      // Broadcast the changes to other users
+      if (isShared.value) {
+        console.log('[MagazineStore] Broadcasting history restoration:', { historyIndex: index })
+
+        // Add timestamp to all articles to ensure they're recognized as updated
+        const articlesWithTimestamp = articles.value.map(article => ({
+          ...article,
+          _lastUpdated: Date.now(),
+          _broadcastTimestamp: Date.now(),
+          _historyRestoration: true,
+        }))
+
+        // Broadcast each article update individually
+        import('../utils/collaboration').then(({ broadcastArticleReorder }) => {
+          broadcastArticleReorder(articlesWithTimestamp)
+        })
+      }
     }
   }
 
