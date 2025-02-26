@@ -15,8 +15,16 @@ interface MessagePayload {
   data: Record<string, unknown>
 }
 
-let userId = Math.random().toString(36).substr(2, 9)
-let userAnimal = getRandomAnimal()
+// Initialize user ID and animal from localStorage or create new ones
+const storedUser = localStorage.getItem('flatmag_user')
+let userId = storedUser ? JSON.parse(storedUser).id : Math.random().toString(36).substr(2, 9)
+let userAnimal = storedUser ? JSON.parse(storedUser).animal : getRandomAnimal()
+
+// Save user to localStorage
+if (!storedUser) {
+  localStorage.setItem('flatmag_user', JSON.stringify({ id: userId, animal: userAnimal }))
+}
+
 let connectedUsers: User[] = [{ id: userId, animal: userAnimal }]
 let currentShareId: string | null = null
 let unsubscribeFunction: (() => void) | null = null
@@ -155,6 +163,14 @@ function handleMessage(payload: MessagePayload) {
   }
 }
 
+// Update edit status without leaving the session
+export function updateEditStatus(allowEdit: boolean) {
+  isEditAllowed = allowEdit
+
+  // Update the store and broadcast the change
+  updateShareStatus(allowEdit)
+}
+
 // This function will be called from a component that uses the store
 export function updateShareStatus(allowEdit: boolean) {
   const magazineStore = getMagazineStore()
@@ -164,6 +180,9 @@ export function updateShareStatus(allowEdit: boolean) {
       allowEdit,
       shareId: currentShareId,
     })
+
+    // Broadcast the state update to all users
+    broadcastStateUpdate(allowEdit)
   }
 }
 
@@ -173,6 +192,11 @@ function handleStateUpdate(data: { allowEdit: boolean }) {
   const pendingUpdate = {
     allowEdit: data.allowEdit,
   }
+
+  // Update local edit allowed status
+  isEditAllowed = data.allowEdit
+
+  console.log('Received state update:', pendingUpdate)
 
   // Try to update the store directly if it's available
   const magazineStore = getMagazineStore()
@@ -185,7 +209,7 @@ function handleStateUpdate(data: { allowEdit: boolean }) {
   }
   else {
     // Log for debugging if store isn't available
-    console.log('Received state update:', pendingUpdate)
+    console.log('Store not available for update')
   }
 }
 
@@ -265,6 +289,22 @@ export function broadcastArticleDelete(articleId: string) {
     payload: {
       articleId,
       user: { id: userId, animal: userAnimal },
+      timestamp: Date.now(),
+    },
+  })
+}
+
+// Function to broadcast state updates (like edit permissions)
+export function broadcastStateUpdate(allowEdit: boolean) {
+  if (!currentShareId)
+    return
+
+  const channel = supabase.channel(`magazine-${currentShareId}`)
+  channel.send({
+    type: 'broadcast',
+    event: 'state:update',
+    payload: {
+      allowEdit,
       timestamp: Date.now(),
     },
   })

@@ -390,7 +390,7 @@ function handleReorderArticles(articles: any[]) {
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-4">
           <h2 class="text-2xl font-semibold text-gray-900">
-            Magazine Layout
+            {{ magazineStore.title }}
           </h2>
           <CollaborationStatus
             :is-sharing="collaborationStatus.isCollaborating"

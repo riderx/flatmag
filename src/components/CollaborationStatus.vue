@@ -33,6 +33,17 @@ onMounted(() => {
   }
 })
 
+// Watch for changes in editing permission
+watch(() => isEditingAllowed, (newVal) => {
+  console.log('Edit permission changed:', newVal)
+
+  if (isSharing && shareId) {
+    // Refresh the connected users to ensure UI is updated
+    connectedUsers.value = getConnectedUsers()
+    isCollaborating.value = getIsCollaborating()
+  }
+})
+
 // Watch for changes in sharing status
 watch(() => isSharing, (newVal) => {
   if (newVal && shareId) {

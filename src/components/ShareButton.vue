@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Check, Share2, Users2 } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMagazineStore } from '../store/magazineStore'
+import { updateEditStatus } from '../utils/collaboration'
 import { initializeShare } from '../utils/share'
 import CollaborationStatus from './CollaborationStatus.vue'
 import Modal from './Modal.vue'
@@ -17,22 +18,47 @@ const magazineStore = useMagazineStore()
 const isCollaborating = computed(() => magazineStore.$state.isShared)
 const shareId = computed(() => magazineStore.$state.shareId)
 
+// Watch for changes to allowEdit when already sharing
+watch(() => allowEdit.value, (newValue) => {
+  if (isCollaborating.value) {
+    // Update edit status for all collaborators
+    updateEditStatus(newValue)
+  }
+})
+
 async function handleShare() {
   isSharing.value = true
 
   try {
+    // If already sharing, just update the share status
+    if (isCollaborating.value && shareId.value) {
+      // Update edit permission for all collaborators
+      updateEditStatus(allowEdit.value)
+
+      // Generate the URL to share
+      const shareUrl = `${window.location.origin}/share/${shareId.value}?edit=${allowEdit.value ? '1' : '0'}`
+
+      // Copy the URL to clipboard
+      await navigator.clipboard.writeText(shareUrl)
+      copied.value = true
+      setTimeout(() => copied.value = false, 2000)
+
+      showModal.value = false
+      return
+    }
+
     // Initialize sharing with the current magazine state
-    const shareId = await initializeShare(allowEdit.value, magazineStore)
+    const newShareId = await initializeShare(allowEdit.value, magazineStore)
 
     // Update store to reflect the share status
     magazineStore.setShareStatus({
       isShared: true,
       allowEdit: allowEdit.value,
-      shareId,
+      shareId: newShareId,
     })
 
     // Generate the URL to share
-    const url = `${window.location.origin}/share/${shareId}?edit=${allowEdit.value ? '1' : '0'}`
+    const url = `${window.location.origin}/share/${newShareId}?edit=${allowEdit.value ? '1' : '0'}`
 
     // Copy the URL to clipboard
     await navigator.clipboard.writeText(url)

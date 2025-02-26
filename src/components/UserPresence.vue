@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { User } from '../utils/collaboration'
 import { User as LucideUser } from 'lucide-vue-next'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 interface UserPresenceProps {
   users: User[]
@@ -11,6 +11,15 @@ interface UserPresenceProps {
 const props = defineProps<UserPresenceProps>()
 const showUserList = ref(false)
 const listRef = ref<HTMLElement | null>(null)
+
+// Make a reactive copy of users to avoid mutation issues
+const usersList = ref<User[]>([])
+
+// Update usersList when props.users changes
+watch(() => props.users, (newUsers) => {
+  usersList.value = [...newUsers]
+  console.log('User presence updated:', usersList.value.length, 'users')
+}, { immediate: true, deep: true })
 
 function toggleUserList() {
   showUserList.value = !showUserList.value
@@ -30,20 +39,32 @@ onUnmounted(() => {
   document.removeEventListener('click', closeUserList)
 })
 
+const MAX_DISPLAY = 3
+
 const sortedUsers = computed(() => {
-  // Put current user first, then sort others alphabetically
-  return [...props.users].sort((a, b) => {
+  // Sort users: current user first, then others
+  return [...usersList.value].sort((a, b) => {
     if (a.id === props.currentUserId)
       return -1
     if (b.id === props.currentUserId)
       return 1
-    return a.animal.name.localeCompare(b.animal.name)
+    return 0
   })
 })
 
-const currentUser = computed(() => {
-  return props.users.find(user => user.id === props.currentUserId)
+// Use MAX_DISPLAY in the template to limit visible users
+const displayedUsers = computed(() => {
+  return sortedUsers.value.slice(0, MAX_DISPLAY)
 })
+
+const hiddenUsersCount = computed(() => {
+  return Math.max(0, sortedUsers.value.length - MAX_DISPLAY)
+})
+
+// Remove or comment out the unused currentUser computed property
+// const currentUser = computed(() => {
+//   return usersList.value.find(user => user.id === props.currentUserId)
+// })
 </script>
 
 <template>
@@ -55,7 +76,7 @@ const currentUser = computed(() => {
     >
       <div class="flex -space-x-2">
         <div
-          v-for="(user, index) in users.slice(0, 3)"
+          v-for="(user, index) in displayedUsers"
           :key="user.id"
           class="relative inline-flex items-center justify-center w-8 h-8 rounded-full ring-2 ring-white"
           :class="{ 'ring-green-300 ring-opacity-50': user.id === currentUserId }"
@@ -71,11 +92,11 @@ const currentUser = computed(() => {
           />
         </div>
         <div
-          v-if="users.length > 3"
+          v-if="hiddenUsersCount > 0"
           class="relative inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 ring-2 ring-white"
           :style="{ zIndex: 0 }"
         >
-          <span class="text-xs font-medium text-gray-700">+{{ users.length - 3 }}</span>
+          <span class="text-xs font-medium text-gray-700">+{{ hiddenUsersCount }}</span>
         </div>
       </div>
       <span class="text-sm text-gray-600">
@@ -83,57 +104,32 @@ const currentUser = computed(() => {
       </span>
     </div>
 
-    <!-- User list dropdown -->
+    <!-- User list -->
     <div
       v-if="showUserList"
       ref="listRef"
-      class="absolute top-10 right-0 z-10 w-80 bg-white border border-gray-200 rounded-md shadow-lg p-3"
-      @click.stop
+      class="absolute top-full mt-2 right-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 p-2 z-10"
     >
-      <h3 class="font-medium text-gray-900 mb-3">
-        Connected Users
+      <h3 class="text-sm font-medium text-gray-700 mb-2">
+        Connected users ({{ sortedUsers.length }})
       </h3>
-
-      <!-- Current user highlight -->
-      <div v-if="currentUser" class="mb-4 p-3 bg-green-50 rounded-lg border border-green-100">
-        <div class="flex items-center space-x-3">
-          <div
-            class="inline-flex items-center justify-center w-10 h-10 rounded-full"
-            :style="{ backgroundColor: currentUser.animal.color }"
-          >
-            <span class="text-sm font-medium text-white">{{ currentUser.animal.name.charAt(0) }}</span>
-          </div>
-          <div class="flex flex-col">
-            <span class="text-sm font-medium flex items-center">
-              {{ currentUser.animal.name }}
-              <span class="text-xs text-green-600 ml-2 px-2 py-0.5 bg-green-100 rounded-full">You</span>
-            </span>
-            <span class="text-xs text-gray-500">Your color in history</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Divider -->
-      <div v-if="users.length > 1" class="border-t border-gray-100 my-2 pt-2">
-        <h4 class="text-xs font-medium text-gray-500 mb-2">
-          Other Users
-        </h4>
-      </div>
-
       <ul class="space-y-2">
         <li
-          v-for="user in sortedUsers.filter(u => u.id !== currentUserId)"
+          v-for="user in sortedUsers"
           :key="user.id"
-          class="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-50"
+          class="flex items-center space-x-2 p-1 rounded-md hover:bg-gray-50"
         >
           <div
-            class="inline-flex items-center justify-center w-8 h-8 rounded-full"
+            class="w-8 h-8 rounded-full flex items-center justify-center text-white"
             :style="{ backgroundColor: user.animal.color }"
           >
-            <span class="text-xs font-medium text-white">{{ user.animal.name.charAt(0) }}</span>
+            <span class="text-xs">{{ user.animal.name.charAt(0).toUpperCase() }}</span>
           </div>
-          <div class="flex flex-col">
-            <span class="text-sm font-medium">{{ user.animal.name }}</span>
+          <div class="text-sm">
+            <div class="font-medium">
+              {{ user.animal.name }}
+              <span v-if="user.id === currentUserId" class="text-gray-500 text-xs">(you)</span>
+            </div>
           </div>
         </li>
       </ul>

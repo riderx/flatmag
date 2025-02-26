@@ -103,14 +103,19 @@ function createMagazine() {
   magazines.push(newMagazineData)
   localStorage.setItem('magazines', JSON.stringify(magazines))
 
-  // Reset and close modal
+  // Reset form
   newMagazine.value = {
     title: '',
     issue_number: '1',
     publication_date: new Date().toISOString().split('T')[0],
     page_ratio: '1/1.4142' as const,
   }
+
+  // Close modal
   showCreateModal.value = false
+
+  // Automatically navigate to the flat-plan page
+  router.push(`/flat-plan/${newMagazineData.id}`)
 }
 
 function confirmDeleteMagazine(id: string) {

@@ -165,9 +165,6 @@ function handleDragEnd() {
 <template>
   <div>
     <div class="mb-6">
-      <h2 class="text-xl font-semibold text-gray-900">
-        {{ magazineStore.title }}
-      </h2>
       <div class="text-sm text-gray-500">
         Issue {{ magazineStore.issueNumber }} • {{ new Date(magazineStore.publicationDate).toLocaleDateString() }}
       </div>
