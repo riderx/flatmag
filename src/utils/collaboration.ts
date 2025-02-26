@@ -222,7 +222,13 @@ function handleMessage(payload: MessagePayload) {
       break
 
     case 'magazine:update': {
-      console.log('[Collaboration] Applying magazine settings update')
+      console.log('[Collaboration] Applying magazine settings update', {
+        pages: (data as any).settings.pages,
+        title: (data as any).settings.title,
+        historyOp: (data as any).settings._historyOperation || 'none',
+        hasTimestamp: !!(data as any).settings._broadcast_timestamp,
+      })
+
       // Force synchronous update with a deep-cloned settings object
       const settingsCopy = JSON.parse(JSON.stringify((data as any).settings))
 
@@ -385,8 +391,19 @@ export function broadcastMagazineSettings(settings: any) {
   if (!currentShareId)
     return
 
+  console.log('[Collaboration] Broadcasting magazine settings:', {
+    title: settings.title,
+    pages: settings.pages,
+    historyOp: settings._historyOperation || 'direct update',
+    timestamp: Date.now(),
+  })
+
   // Create clean copy without temp properties
   const cleanSettings = JSON.parse(JSON.stringify(settings))
+
+  // Add a timestamp to ensure receiving end recognizes it as new
+  cleanSettings._broadcast_timestamp = Date.now()
+
   broadcast('magazine:update', { settings: cleanSettings })
 }
 

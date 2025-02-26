@@ -39,6 +39,13 @@ export interface HistoryEntry {
   articles: Article[]
   description: string
   user?: User
+  pages?: number
+  pageMargins?: Record<number, PageMargin>
+  zoomLevel?: string
+  title?: string
+  issueNumber?: number
+  publicationDate?: string
+  pageRatio?: string
 }
 
 export interface MagazineState {
@@ -90,6 +97,13 @@ export const useMagazineStore = defineStore('magazine', () => {
       articles: JSON.parse(JSON.stringify(articles.value)),
       description,
       user: user || getSessionUser(),
+      pages: pages.value,
+      pageMargins: JSON.parse(JSON.stringify(pageMargins.value)),
+      zoomLevel: zoomLevel.value,
+      title: title.value,
+      issueNumber: issueNumber.value,
+      publicationDate: publicationDate.value,
+      pageRatio: pageRatio.value,
     })
     history.future = []
   }
@@ -407,18 +421,33 @@ export const useMagazineStore = defineStore('magazine', () => {
   function addPage() {
     pages.value += 1
     addToHistory(`Added page: ${pages.value}`)
+
+    // Broadcast the updated page count to other users
+    if (isShared.value) {
+      syncMagazineSettings({ pages: pages.value }, true)
+    }
   }
 
   function removePage() {
     if (pages.value > 1) {
       pages.value -= 1
       addToHistory(`Removed page: ${pages.value + 1}`)
+
+      // Broadcast the updated page count to other users
+      if (isShared.value) {
+        syncMagazineSettings({ pages: pages.value }, true)
+      }
     }
   }
 
   function setPages(pageCount: number) {
     pages.value = pageCount
     addToHistory(`Set pages to ${pageCount}`)
+
+    // Broadcast the updated page count to other users
+    if (isShared.value) {
+      syncMagazineSettings({ pages: pages.value }, true)
+    }
   }
 
   function setZoomLevel(level: string) {
@@ -539,10 +568,21 @@ export const useMagazineStore = defineStore('magazine', () => {
 
   // New function to sync magazine settings (title, issueNumber, etc.)
   function syncMagazineSettings(settings: any, shouldBroadcast = true) {
-    console.log('[MagazineStore] Syncing magazine settings:', settings)
+    console.log('[MagazineStore] Syncing magazine settings:', {
+      pages: settings.pages,
+      title: settings.title,
+      historyOp: settings._historyOperation || 'direct update',
+      prevPages: pages.value,
+      hasTimestamp: !!settings._broadcast_timestamp,
+    })
+
+    const isHistoryOperation = settings._historyOperation === 'undo'
+      || settings._historyOperation === 'redo'
+      || settings._historyOperation === 'jump'
 
     // Update all relevant settings that are provided
     if (settings.title !== undefined) {
+      console.log('[MagazineStore] Updating title:', settings.title)
       title.value = settings.title
     }
 
@@ -559,7 +599,14 @@ export const useMagazineStore = defineStore('magazine', () => {
     }
 
     if (settings.pages !== undefined) {
+      const oldPages = pages.value
       pages.value = Number(settings.pages)
+      console.log(`[MagazineStore] ${isHistoryOperation ? 'HISTORY' : 'DIRECT'} Page count update:`, {
+        oldPages,
+        newPages: pages.value,
+        fromSettings: settings.pages,
+        historyOp: settings._historyOperation || 'none',
+      })
     }
 
     if (settings.zoomLevel !== undefined) {
@@ -583,7 +630,11 @@ export const useMagazineStore = defineStore('magazine', () => {
       delete magazineTags.value[reactivityMarker]
     }, 100)
 
-    addToHistory('Updated magazine settings')
+    // Only add to history if this is not from a history operation itself
+    if (!isHistoryOperation) {
+      addToHistory('Updated magazine settings')
+    }
+
     saveToLocalStorage()
 
     // Import the broadcast function only if we need it
@@ -609,9 +660,35 @@ export const useMagazineStore = defineStore('magazine', () => {
     if (history.past.length > 0) {
       const previous = history.past.pop()
       if (previous) {
-        const current = { articles: [...articles.value], description: 'Current state' }
+        const current = {
+          articles: [...articles.value],
+          description: 'Current state',
+          pages: pages.value,
+          pageMargins: JSON.parse(JSON.stringify(pageMargins.value)),
+          zoomLevel: zoomLevel.value,
+          title: title.value,
+          issueNumber: issueNumber.value,
+          publicationDate: publicationDate.value,
+          pageRatio: pageRatio.value,
+        }
         history.future.push(current)
         articles.value = [...previous.articles]
+
+        // Also restore other magazine settings if available
+        if (previous.pages !== undefined)
+          pages.value = previous.pages
+        if (previous.pageMargins)
+          pageMargins.value = previous.pageMargins
+        if (previous.zoomLevel)
+          zoomLevel.value = previous.zoomLevel
+        if (previous.title)
+          title.value = previous.title
+        if (previous.issueNumber)
+          issueNumber.value = previous.issueNumber
+        if (previous.publicationDate)
+          publicationDate.value = previous.publicationDate
+        if (previous.pageRatio)
+          pageRatio.value = previous.pageRatio
 
         // Broadcast the changes to other users
         if (isShared.value) {
@@ -625,9 +702,22 @@ export const useMagazineStore = defineStore('magazine', () => {
             _undoOperation: true,
           }))
 
-          // Broadcast the updates
-          import('../utils/collaboration').then(({ broadcastArticleReorder }) => {
+          // Broadcast the article updates
+          import('../utils/collaboration').then(({ broadcastArticleReorder, broadcastMagazineSettings }) => {
             broadcastArticleReorder(articlesWithTimestamp)
+
+            // Also broadcast page count and other magazine settings
+            const currentSettings = {
+              title: title.value,
+              issueNumber: issueNumber.value,
+              publicationDate: publicationDate.value,
+              pageRatio: pageRatio.value,
+              pages: pages.value,
+              zoomLevel: zoomLevel.value,
+              magazineTags: magazineTags.value,
+              _historyOperation: 'undo',
+            }
+            broadcastMagazineSettings(currentSettings)
           })
         }
       }
@@ -638,9 +728,35 @@ export const useMagazineStore = defineStore('magazine', () => {
     if (history.future.length > 0) {
       const next = history.future.pop()
       if (next) {
-        const current = { articles: [...articles.value], description: 'Current state' }
+        const current = {
+          articles: [...articles.value],
+          description: 'Current state',
+          pages: pages.value,
+          pageMargins: JSON.parse(JSON.stringify(pageMargins.value)),
+          zoomLevel: zoomLevel.value,
+          title: title.value,
+          issueNumber: issueNumber.value,
+          publicationDate: publicationDate.value,
+          pageRatio: pageRatio.value,
+        }
         history.past.push(current)
         articles.value = [...next.articles]
+
+        // Also restore other magazine settings if available
+        if (next.pages !== undefined)
+          pages.value = next.pages
+        if (next.pageMargins)
+          pageMargins.value = next.pageMargins
+        if (next.zoomLevel)
+          zoomLevel.value = next.zoomLevel
+        if (next.title)
+          title.value = next.title
+        if (next.issueNumber)
+          issueNumber.value = next.issueNumber
+        if (next.publicationDate)
+          publicationDate.value = next.publicationDate
+        if (next.pageRatio)
+          pageRatio.value = next.pageRatio
 
         // Broadcast the changes to other users
         if (isShared.value) {
@@ -654,9 +770,22 @@ export const useMagazineStore = defineStore('magazine', () => {
             _redoOperation: true,
           }))
 
-          // Broadcast the updates
-          import('../utils/collaboration').then(({ broadcastArticleReorder }) => {
+          // Broadcast the article updates
+          import('../utils/collaboration').then(({ broadcastArticleReorder, broadcastMagazineSettings }) => {
             broadcastArticleReorder(articlesWithTimestamp)
+
+            // Also broadcast page count and other magazine settings
+            const currentSettings = {
+              title: title.value,
+              issueNumber: issueNumber.value,
+              publicationDate: publicationDate.value,
+              pageRatio: pageRatio.value,
+              pages: pages.value,
+              zoomLevel: zoomLevel.value,
+              magazineTags: magazineTags.value,
+              _historyOperation: 'redo',
+            }
+            broadcastMagazineSettings(currentSettings)
           })
         }
       }
@@ -666,7 +795,17 @@ export const useMagazineStore = defineStore('magazine', () => {
   function jumpToHistory(index: number) {
     if (index >= 0 && index < history.past.length) {
       const targetState = history.past[index]
-      const currentState = { articles: [...articles.value], description: 'Current state' }
+      const currentState = {
+        articles: [...articles.value],
+        description: 'Current state',
+        pages: pages.value,
+        pageMargins: JSON.parse(JSON.stringify(pageMargins.value)),
+        zoomLevel: zoomLevel.value,
+        title: title.value,
+        issueNumber: issueNumber.value,
+        publicationDate: publicationDate.value,
+        pageRatio: pageRatio.value,
+      }
 
       // Move all states after the target to future
       const newFuture = history.past.slice(index + 1).reverse()
@@ -678,6 +817,22 @@ export const useMagazineStore = defineStore('magazine', () => {
       // Update future and current state
       history.future = [...newFuture, ...history.future]
       articles.value = [...targetState.articles]
+
+      // Also restore other magazine settings if available
+      if (targetState.pages !== undefined)
+        pages.value = targetState.pages
+      if (targetState.pageMargins)
+        pageMargins.value = targetState.pageMargins
+      if (targetState.zoomLevel)
+        zoomLevel.value = targetState.zoomLevel
+      if (targetState.title)
+        title.value = targetState.title
+      if (targetState.issueNumber)
+        issueNumber.value = targetState.issueNumber
+      if (targetState.publicationDate)
+        publicationDate.value = targetState.publicationDate
+      if (targetState.pageRatio)
+        pageRatio.value = targetState.pageRatio
 
       // Broadcast the changes to other users
       if (isShared.value) {
@@ -691,9 +846,23 @@ export const useMagazineStore = defineStore('magazine', () => {
           _historyRestoration: true,
         }))
 
-        // Broadcast each article update individually
-        import('../utils/collaboration').then(({ broadcastArticleReorder }) => {
+        // Broadcast article updates
+        import('../utils/collaboration').then(({ broadcastArticleReorder, broadcastMagazineSettings }) => {
           broadcastArticleReorder(articlesWithTimestamp)
+
+          // Also broadcast page count and other magazine settings
+          const currentSettings = {
+            title: title.value,
+            issueNumber: issueNumber.value,
+            publicationDate: publicationDate.value,
+            pageRatio: pageRatio.value,
+            pages: pages.value,
+            zoomLevel: zoomLevel.value,
+            magazineTags: magazineTags.value,
+            _historyOperation: 'jump',
+            _historyIndex: index,
+          }
+          broadcastMagazineSettings(currentSettings)
         })
       }
     }
