@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Article, SizeRatio, Visual } from '../types'
 import { useDraggable } from '@vueuse/core'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getImageUrl } from '../utils/imageHandler/index'
 
 interface ImageLoadingState {
@@ -63,6 +63,35 @@ watch(() => [props.visual.x, props.visual.y, props.visual.page], ([newX, newY, n
   }
 }, { immediate: true })
 
+// Add force reset method that can be called when needed
+function forcePositionRefresh() {
+  if (el.value) {
+    // Clear any existing transform
+    el.value.style.transform = ''
+
+    // Force a DOM reflow
+    void el.value.offsetHeight
+
+    // Update tracking
+    lastPosition.value = {
+      x: props.visual.x,
+      y: props.visual.y,
+      page: props.visual.page,
+    }
+  }
+}
+
+// Ensure position is refreshed when mounted
+onMounted(() => {
+  forcePositionRefresh()
+})
+
+// Also watch for container resize which might affect positioning
+window.addEventListener('resize', forcePositionRefresh)
+onUnmounted(() => {
+  window.removeEventListener('resize', forcePositionRefresh)
+})
+
 function handleMouseDown(e: MouseEvent) {
   if (isDragDisabled.value)
     return
@@ -103,8 +132,23 @@ function handleMouseUp() {
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
 
-  // Calculate container dimensions to convert to percent
-  const container = document.getElementById(`article-${props.article.id}-page-${props.currentPage - 1}`)
+  // Try multiple container selectors to handle different page numbering scenarios
+  let container = document.getElementById(`article-${props.article.id}-page-${props.currentPage - 1}`)
+
+  // If not found, try with the direct current page (0-indexed)
+  if (!container) {
+    container = document.getElementById(`article-${props.article.id}-page-${props.currentPage}`)
+  }
+
+  // If still not found, try with page number as-is (1-indexed)
+  if (!container) {
+    container = document.getElementById(`article-${props.article.id}-page-${props.visual.page - 1}`)
+  }
+
+  // As a final fallback, look for the closest containing element
+  if (!container && el.value) {
+    container = el.value.closest('[id^="article-"]')
+  }
 
   // Don't reset transform immediately - wait to see if we need to emit an update
   const isDragSignificant = Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2
@@ -117,12 +161,11 @@ function handleMouseUp() {
       deltaX,
       deltaY,
       articleId: props.article.id,
+      containerId: container.id,
     })
 
     // Emit the change to parent with the deltas
     emit('dragEnd', props.visual.id, deltaX, deltaY)
-
-    // Don't reset transform - parent component will handle position updates
 
     // Update our last position with expected new values
     // This helps avoid reset conflicts when the state update comes back
@@ -134,6 +177,16 @@ function handleMouseUp() {
       x: props.visual.x + deltaXPercent,
       y: props.visual.y + deltaYPercent,
       page: props.visual.page,
+    }
+
+    // Force clear transform after we've emitted the update
+    // This ensures we don't have conflicts with the updated position
+    if (el.value) {
+      // Use a short timeout to avoid flickering and ensure state propagation
+      setTimeout(() => {
+        if (el.value)
+          el.value.style.transform = ''
+      }, 50)
     }
   }
   else {
@@ -211,8 +264,6 @@ const visualStyle = computed(() => {
   const width = sizeToPercent(props.visual.width as SizeRatio)
   const height = sizeToPercent(props.visual.height as SizeRatio)
 
-  // Force transform to empty string to ensure position is refreshed from props
-  // and add a special data attribute to force Vue to recognize position changes
   return {
     width: `${width}%`,
     height: `${height}%`,
@@ -220,8 +271,7 @@ const visualStyle = computed(() => {
     top: `${props.visual.y}%`,
     cursor: isDragDisabled.value ? 'default' : isDragging.value ? 'grabbing' : 'grab',
     zIndex: props.visual.width === 'full' && props.visual.height === 'full' ? 0 : isDragging.value ? 100 : 10,
-    transform: '', // Force position to refresh on render
-    transition: isDragging.value ? 'none' : 'transform 0s', // Prevent transition effects
+    transition: isDragging.value ? 'none' : 'transform 0.1s, left 0.1s, top 0.1s', // Add transition for smoother movement when not dragging
   }
 })
 
@@ -235,11 +285,12 @@ const positionTracker = computed(() =>
   <div
     ref="el"
     :style="visualStyle"
-    class="absolute rounded-sm overflow-hidden select-none touch-none"
+    class="absolute rounded-sm overflow-hidden select-none touch-none p-1.5 bg-white/60 backdrop-blur-sm"
     :class="{
-      'ring-2 ring-blue-500 shadow-lg': isDragging,
+      'ring-2 ring-blue-500 ring-offset-2 shadow-lg': isDragging,
       'pointer-events-none': isDragDisabled,
-      'hover:ring-1 hover:ring-blue-300': !isDragDisabled && !isDragging,
+      'hover:ring-1 hover:ring-blue-300 hover:ring-offset-1 shadow-sm': !isDragDisabled && !isDragging,
+      'shadow-sm border border-gray-100': !isDragging,
     }"
     :data-position-tracker="positionTracker"
     @mousedown="handleMouseDown"
@@ -247,7 +298,7 @@ const positionTracker = computed(() =>
     <!-- Loading state -->
     <div
       v-if="loadingState.isLoading && visual.type === 'image'"
-      class="w-full h-full bg-gray-100 flex flex-col items-center justify-center"
+      class="w-full h-full bg-gray-100 flex flex-col items-center justify-center rounded"
     >
       <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-2" />
       <span class="text-sm text-gray-500">Loading image...</span>
@@ -256,7 +307,7 @@ const positionTracker = computed(() =>
     <!-- Error state -->
     <div
       v-else-if="loadingState.error && visual.type === 'image'"
-      class="w-full h-full bg-gray-100 flex flex-col items-center justify-center p-4"
+      class="w-full h-full bg-gray-100 flex flex-col items-center justify-center p-4 rounded"
     >
       <svg class="w-8 h-8 text-red-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -269,7 +320,7 @@ const positionTracker = computed(() =>
       v-else-if="visual.type === 'image' && visual.url"
       :src="visual.url"
       :alt="visual.title || 'Visual'"
-      class="w-full h-full object-cover"
+      class="w-full h-full object-cover rounded shadow"
       draggable="false"
       @load="loadingState.isLoading = false"
       @error="loadingState.error = 'Failed to load image'"
@@ -277,13 +328,13 @@ const positionTracker = computed(() =>
 
     <div
       v-else-if="visual.type === 'illustration'"
-      class="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center"
+      class="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center rounded"
     >
       <span class="text-gray-500">Illustration</span>
     </div>
     <div
       v-else
-      class="w-full h-full bg-gray-200 flex items-center justify-center"
+      class="w-full h-full bg-gray-200 flex items-center justify-center rounded"
     >
       <span class="text-gray-500">{{ visual.title || 'No media' }}</span>
     </div>

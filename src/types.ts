@@ -24,6 +24,7 @@ export interface Margins {
   right: number
   bottom: number
   left: number
+  visualMargin?: number // Percentage margin around illustrations/visuals
 }
 
 export interface Visual {

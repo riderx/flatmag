@@ -55,13 +55,23 @@ function lineIntersectsVisual(y: number, colStart: number, colEnd: number, visua
   let segments: LineSegment[] = [{ x: colStart, width: colEnd - colStart }]
 
   for (const visual of visualsInColumn) {
+    // Add a small margin around each visual (0.75% on each side)
+    const visualMargin = 1.5
     const { x, y: visualY, width, height } = getVisualDimensions(visual)
 
-    // Check if line is within vertical bounds of visual
-    if (y >= visualY && y <= visualY + height) {
+    // Apply margin to visual dimensions
+    const marginedVisual = {
+      x: Math.max(0, x - visualMargin),
+      y: Math.max(0, visualY - visualMargin),
+      width: width + (visualMargin * 2),
+      height: height + (visualMargin * 2),
+    }
+
+    // Check if line is within vertical bounds of visual (with margin)
+    if (y >= marginedVisual.y && y <= marginedVisual.y + marginedVisual.height) {
       // Visual intersects this line, need to update segments
-      const visualStart = x
-      const visualEnd = x + width
+      const visualStart = marginedVisual.x
+      const visualEnd = marginedVisual.x + marginedVisual.width
 
       // Create new segments by "cutting out" the visual area
       const newSegments: LineSegment[] = []
