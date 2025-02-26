@@ -240,7 +240,22 @@ function handleAddArticle(newArticle: any) {
 
 function handleUpdateArticle(updatedArticle: any) {
   if (typeof magazineStore.updateArticle === 'function') {
-    magazineStore.updateArticle(updatedArticle)
+    // Ensure article has proper timestamps for broadcast detection
+    const articleWithTimestamp = {
+      ...updatedArticle,
+      _updateFromFlatPlan: true,
+      _lastUpdated: Date.now(),
+      _broadcastTimestamp: Date.now(),
+    }
+
+    console.log('[FlatPlan] Updating article with broadcast flags:', {
+      id: articleWithTimestamp.id,
+      title: articleWithTimestamp.title,
+      hasTimestamps: !!articleWithTimestamp._broadcastTimestamp,
+    })
+
+    // Always use true for shouldBroadcast to ensure updates are sent to others
+    magazineStore.updateArticle(articleWithTimestamp, undefined, undefined, true)
   }
 }
 

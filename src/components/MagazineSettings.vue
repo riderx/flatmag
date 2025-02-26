@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Settings } from 'lucide-vue-next'
+import { ref, watch } from 'vue'
 import { useMagazineStore } from '../store/magazineStore'
 import { pageRatios } from '../types'
 
@@ -13,9 +14,40 @@ defineEmits<{
 
 const magazineStore = useMagazineStore()
 
+// Track original values to detect changes
+const originalSettings = ref({
+  title: magazineStore.title,
+  issueNumber: magazineStore.issueNumber,
+  publicationDate: magazineStore.publicationDate,
+  pageRatio: magazineStore.pageRatio,
+})
+
+// Watch for changes and update the original values when the modal opens
+watch(() => magazineStore.title + magazineStore.issueNumber + magazineStore.publicationDate + magazineStore.pageRatio, (newVal) => {
+  // Skip the first watch to avoid duplicate syncs
+  if (newVal !== originalSettings.value.title + originalSettings.value.issueNumber
+    + originalSettings.value.publicationDate + originalSettings.value.pageRatio) {
+    handleSettingChange()
+  }
+})
+
+// Update original values when component is mounted
+watch(() => magazineStore.title, (val) => { originalSettings.value.title = val }, { immediate: true })
+watch(() => magazineStore.issueNumber, (val) => { originalSettings.value.issueNumber = val }, { immediate: true })
+watch(() => magazineStore.publicationDate, (val) => { originalSettings.value.publicationDate = val }, { immediate: true })
+watch(() => magazineStore.pageRatio, (val) => { originalSettings.value.pageRatio = val }, { immediate: true })
+
 // Save changes immediately when settings are updated
 function handleSettingChange() {
-  magazineStore.saveToLocalStorage()
+  // Use the syncMagazineSettings function which handles broadcasting
+  magazineStore.syncMagazineSettings({
+    title: magazineStore.title,
+    issueNumber: magazineStore.issueNumber,
+    publicationDate: magazineStore.publicationDate,
+    pageRatio: magazineStore.pageRatio,
+    // Important: add timestamp to ensure changes are detected
+    _updateTimestamp: Date.now(),
+  })
 }
 </script>
 

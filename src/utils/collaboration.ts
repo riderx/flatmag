@@ -318,11 +318,25 @@ export function broadcastArticleUpdate(article: any) {
   // Create clean copy for broadcasting
   const cleanedArticle = JSON.parse(JSON.stringify(article))
 
-  // Remove any temporary properties
+  // Log what we're broadcasting
+  console.log('[Collaboration] Broadcasting article update:', {
+    id: cleanedArticle.id,
+    title: cleanedArticle.title,
+    hasVisuals: (cleanedArticle.visuals || []).length > 0,
+    titleChanged: cleanedArticle._titleChanged,
+    hasTimestamp: !!cleanedArticle._broadcastTimestamp,
+  })
+
+  // Add our own broadcast timestamp to ensure it's processed
+  cleanedArticle._collaboration_timestamp = Date.now()
+
+  // Remove only the temporary properties that shouldn't be sent
   delete (cleanedArticle as any)._dragTimeStamp
   delete (cleanedArticle as any)._lastUpdated
   delete (cleanedArticle as any)._remoteSync
-  delete (cleanedArticle as any)._broadcastTimestamp
+
+  // Important: don't delete broadcastTimestamp as it's needed to flag this as requiring broadcast
+  // on the receiving end
 
   broadcast('article:update', { article: cleanedArticle })
 }

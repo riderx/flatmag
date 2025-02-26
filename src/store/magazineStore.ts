@@ -266,6 +266,17 @@ export const useMagazineStore = defineStore('magazine', () => {
     // Check if pages were updated
     const pagesUpdated = JSON.stringify(article.pages) !== JSON.stringify(updatedArticle.pages)
 
+    // Check if critical metadata was updated
+    const titleChanged = article.title !== updatedArticle.title
+    const tagsChanged = JSON.stringify(article.tags) !== JSON.stringify(updatedArticle.tags)
+    const wordCountChanged = article.wordCount !== updatedArticle.wordCount
+    const pageCountChanged = article.pageCount !== updatedArticle.pageCount
+    const columnsChanged = article.columns !== updatedArticle.columns
+
+    // Metadata changes should trigger broadcasts as well
+    const metadataChanged = titleChanged || tagsChanged || wordCountChanged
+      || pageCountChanged || columnsChanged
+
     // Log position changes for debugging
     if (visualPositionsChanged) {
       console.log('[MagazineStore] Visual positions changed:', {
@@ -287,6 +298,17 @@ export const useMagazineStore = defineStore('magazine', () => {
       })
     }
 
+    if (metadataChanged) {
+      console.log('[MagazineStore] Article metadata changed:', {
+        articleId: updatedArticle.id,
+        titleChanged,
+        tagsChanged,
+        wordCountChanged,
+        pageCountChanged,
+        columnsChanged,
+      })
+    }
+
     // Skip broadcasting if:
     // - This is a remote sync update (to avoid loops)
     // - Broadcasting is explicitly disabled
@@ -297,11 +319,13 @@ export const useMagazineStore = defineStore('magazine', () => {
     // - visuals were added/removed
     // - pages were updated
     // - a force update is requested
+    // - metadata like title changed
     // - explicit broadcast is requested
     const shouldSendBroadcast = isShared.value && !skipBroadcast && (
       visualPositionsChanged
       || visualsAddedOrRemoved
       || pagesUpdated
+      || metadataChanged
       || hasForceUpdate
     )
 
@@ -311,6 +335,7 @@ export const useMagazineStore = defineStore('magazine', () => {
         visualPositionsChanged,
         visualsAddedOrRemoved,
         pagesUpdated,
+        metadataChanged,
         shouldBroadcast,
         hasForceUpdate,
         isRemoteSync,

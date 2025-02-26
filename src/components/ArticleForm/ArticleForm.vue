@@ -84,6 +84,7 @@ function handleSubmit(e: Event) {
 
   // Construct the article object
   const articleData = {
+    id: props.article?.id, // Make sure to include the ID if editing an existing article
     title: title.value,
     content: props.article?.content || '',
     tags: tags.value,
@@ -97,7 +98,19 @@ function handleSubmit(e: Event) {
     margins: margins.value,
     isLocked: false,
     pages: [],
+    // Add multiple timestamp flags to ensure changes are detected and broadcast
+    _lastUpdated: Date.now(),
+    _formUpdateTimestamp: Date.now(),
+    _titleChanged: title.value !== props.article?.title,
+    _broadcastTimestamp: Date.now(), // Ensure broadcasting happens
   }
+
+  console.log('[ArticleForm] Submitting article update:', {
+    id: props.article?.id,
+    title: title.value,
+    previousTitle: props.article?.title,
+    titleChanged: title.value !== props.article?.title,
+  })
 
   // Emit the add event with the article data
   emit('add', articleData)

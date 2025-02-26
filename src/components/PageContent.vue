@@ -95,6 +95,16 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
 
   // Make sure we're still within the article's page range
   if (articleRelativePage >= 1 && articleRelativePage <= props.article.pageCount) {
+    // Log the page change if applicable
+    const pageChanged = visual.page !== articleRelativePage
+    if (pageChanged) {
+      console.log('[PageContent] Visual moved to new page:', {
+        visualId,
+        oldPage: visual.page,
+        newPage: articleRelativePage,
+      })
+    }
+
     // Create a new reference for each visual to ensure reactivity
     const updatedVisuals = props.article.visuals?.map?.(v =>
       v.id === visualId
@@ -126,11 +136,14 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
       oldPosition: {
         x: visual.x,
         y: visual.y,
+        page: visual.page,
       },
       newPosition: {
         x: newPosition.x,
         y: newPosition.y,
+        page: articleRelativePage,
       },
+      pageChanged,
       isDelta: true,
       deltaX,
       deltaY,
@@ -143,7 +156,16 @@ function handleDragEnd(visualId: string, deltaX: number, deltaY: number) {
     // Update with our new data
     updatedArticle.visuals = updatedVisuals
     updatedArticle.pages = updatedPages
+
+    // Add multiple timestamp flags to ensure changes are detected and broadcast
     updatedArticle._lastUpdated = Date.now() // Force update detection
+    updatedArticle._dragUpdateTimestamp = Date.now()
+    updatedArticle._broadcastTimestamp = Date.now() // Critical for ensuring broadcast
+    updatedArticle._visualMoved = {
+      visualId,
+      from: { x: visual.x, y: visual.y, page: visual.page },
+      to: { x: newPosition.x, y: newPosition.y, page: articleRelativePage },
+    }
 
     // Immediately emit the update to ensure it's propagated to other users
     // This ensures the UI updates immediately without waiting for the store
