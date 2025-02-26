@@ -330,13 +330,13 @@ const positionTracker = computed(() =>
       v-else-if="visual.type === 'illustration'"
       class="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center rounded"
     >
-      <span class="text-gray-500">Illustration</span>
+      <span class="text-gray-500 truncate max-w-full">Illustration</span>
     </div>
     <div
       v-else
       class="w-full h-full bg-gray-200 flex items-center justify-center rounded"
     >
-      <span class="text-gray-500">{{ visual.title || 'No media' }}</span>
+      <span class="text-gray-500 truncate max-w-full">{{ visual.title || 'No media' }}</span>
     </div>
   </div>
 </template>
